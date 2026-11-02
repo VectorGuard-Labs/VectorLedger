@@ -290,6 +290,14 @@ pub fn prove_entry(
         .ok_or_else(|| anyhow::anyhow!("Entry with sequence={sequence} not found"))?;
 
     // Build leaf bytes for the full tree (needed to compute proof paths).
+    //
+    // Error handling: propagate stream failures immediately rather than
+    // swallowing them with .ok().  A mid-stream failure means leaf_bytes is
+    // incomplete, which would produce a Merkle root that doesn't match the
+    // committed root and surface as a misleading root-mismatch error instead
+    // of the real underlying database read error.  Propagating here gives the
+    // caller the true failure reason and prevents further computation on a
+    // partial dataset.
     let total = ledger.entry_count();
     eprint!("  Building Merkle tree over {} entries...", total);
     let mut leaf_bytes: Vec<Vec<u8>> = Vec::new();
@@ -302,7 +310,10 @@ pub fn prove_entry(
             leaf_bytes.push(e.canonical_bytes());
             Ok(())
         })
-        .ok();
+        .context(
+            "Failed to stream ledger entries while building Merkle tree — \
+             cannot generate a reliable inclusion proof from partial data.",
+        )?;
     let idx = entry_idx.ok_or_else(|| {
         anyhow::anyhow!("Entry with sequence={sequence} not found in SQLite index")
     })?;

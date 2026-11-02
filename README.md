@@ -4,7 +4,7 @@
 
 VectorLedger is a purpose-built, append-only financial ledger written entirely in Rust. Every journal entry is linked by a tamper-evident BLAKE3 hash chain, every page of data is encrypted at rest with AES-256-GCM, and every query result can carry a cryptographic Merkle proof proving the returned data has not been modified since it was written. Historical tampering is **cryptographically detectable** — any modification to a past record invalidates every hash in the chain from that point forward.
 
-Built by [VectorGuard Labs](https://vectorguardlabs.com) · **Version 1.6.0** · License: BUSL-1.1
+Built by [VectorGuard Labs](https://vectorguardlabs.com) · **Version 1.6.5** · License: BUSL-1.1
 
 ---
 
@@ -173,16 +173,16 @@ irm https://raw.githubusercontent.com/pavondunbar/VectorLedger/main/install.ps1 
 
 ### Option 2 — Download a release binary
 
-Pre-built binaries for v1.6.0 are available on the [GitHub Releases page](https://github.com/pavondunbar/VectorLedger/releases/tag/v1.6.0):
+Pre-built binaries for v1.6.5 are available on the [GitHub Releases page](https://github.com/pavondunbar/VectorLedger/releases/tag/v1.6.5):
 
 | Platform | Filename | wget |
 |---|---|---|
-| Linux x86_64 (glibc) | `vledger-v1.6.0-linux-x86_64.tar.gz` | `wget https://github.com/pavondunbar/VectorLedger/releases/download/v1.6.0/vledger-v1.6.0-linux-x86_64.tar.gz` |
-| Linux x86_64 **musl** (fully static) | `vledger-v1.6.0-linux-x86_64-musl.tar.gz` | `wget https://github.com/pavondunbar/VectorLedger/releases/download/v1.6.0/vledger-v1.6.0-linux-x86_64-musl.tar.gz` |
-| Linux ARM64 (glibc) | `vledger-v1.6.0-linux-aarch64.tar.gz` | `wget https://github.com/pavondunbar/VectorLedger/releases/download/v1.6.0/vledger-v1.6.0-linux-aarch64.tar.gz` |
-| Linux ARM64 **musl** (fully static) | `vledger-v1.6.0-linux-aarch64-musl.tar.gz` | `wget https://github.com/pavondunbar/VectorLedger/releases/download/v1.6.0/vledger-v1.6.0-linux-aarch64-musl.tar.gz` |
-| macOS x86_64 | `vledger-v1.6.0-macos-x86_64.tar.gz` | `wget https://github.com/pavondunbar/VectorLedger/releases/download/v1.6.0/vledger-v1.6.0-macos-x86_64.tar.gz` |
-| macOS ARM64 (Apple Silicon) | `vledger-v1.6.0-macos-aarch64.tar.gz` | `wget https://github.com/pavondunbar/VectorLedger/releases/download/v1.6.0/vledger-v1.6.0-macos-aarch64.tar.gz` |
+| Linux x86_64 (glibc) | `vledger-v1.6.5-linux-x86_64.tar.gz` | `wget https://github.com/pavondunbar/VectorLedger/releases/download/v1.6.5/vledger-v1.6.5-linux-x86_64.tar.gz` |
+| Linux x86_64 **musl** (fully static) | `vledger-v1.6.5-linux-x86_64-musl.tar.gz` | `wget https://github.com/pavondunbar/VectorLedger/releases/download/v1.6.5/vledger-v1.6.5-linux-x86_64-musl.tar.gz` |
+| Linux ARM64 (glibc) | `vledger-v1.6.5-linux-aarch64.tar.gz` | `wget https://github.com/pavondunbar/VectorLedger/releases/download/v1.6.5/vledger-v1.6.5-linux-aarch64.tar.gz` |
+| Linux ARM64 **musl** (fully static) | `vledger-v1.6.5-linux-aarch64-musl.tar.gz` | `wget https://github.com/pavondunbar/VectorLedger/releases/download/v1.6.5/vledger-v1.6.5-linux-aarch64-musl.tar.gz` |
+| macOS x86_64 | `vledger-v1.6.5-macos-x86_64.tar.gz` | `wget https://github.com/pavondunbar/VectorLedger/releases/download/v1.6.5/vledger-v1.6.5-macos-x86_64.tar.gz` |
+| macOS ARM64 (Apple Silicon) | `vledger-v1.6.5-macos-aarch64.tar.gz` | `wget https://github.com/pavondunbar/VectorLedger/releases/download/v1.6.5/vledger-v1.6.5-macos-aarch64.tar.gz` |
 
 > **musl builds** (`*-musl`) are fully statically linked — no glibc dependency. Use them for Alpine Linux, distroless containers, or any system with an older or non-standard libc.
 
@@ -190,15 +190,15 @@ Each release is accompanied by a checksums file and a CycloneDX SBOM. Verify bef
 
 ```bash
 # Verify SHA-256 checksum
-sha256sum -c vledger-v1.6.0-checksums.txt
+sha256sum -c vledger-v1.6.5-checksums.txt
 
 # Verify cosign signature (keyless OIDC)
 cosign verify-blob \
-  --certificate vledger-v1.6.0-checksums.txt.sig.pem \
-  --signature   vledger-v1.6.0-checksums.txt.sig \
-  --certificate-identity "https://github.com/pavondunbar/VectorLedger/.github/workflows/release.yml@refs/tags/v1.6.0" \
+  --certificate vledger-v1.6.5-checksums.txt.sig.pem \
+  --signature   vledger-v1.6.5-checksums.txt.sig \
+  --certificate-identity "https://github.com/pavondunbar/VectorLedger/.github/workflows/release.yml@refs/tags/v1.6.5" \
   --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
-  vledger-v1.6.0-checksums.txt
+  vledger-v1.6.5-checksums.txt
 ```
 
 ### Option 3 — Build from source
@@ -555,7 +555,7 @@ vledger-mcp \
 
 ```bash
 curl http://127.0.0.1:3000/health
-# {"ok":true,"service":"vledger-mcp","version":"1.6.0","tools":15,
+# {"ok":true,"service":"vledger-mcp","version":"1.6.5","tools":15,
 #  "agent_queries_used":3,"agent_queries_limit":100,"agent_queries_remaining":97}
 ```
 
@@ -713,6 +713,16 @@ vledger-bench \
 ---
 
 ## Changelog
+
+### v1.6.5
+
+- **Security fix — `prove_entry()` stream error now propagates:** The same `.ok()` pattern fixed in `generate()` in v1.6.5 was also present in `prove_entry()`. A mid-stream SQLite read failure would silently truncate the Merkle tree, causing a misleading root-mismatch error instead of the true underlying failure. Both streaming paths in the audit evidence pipeline now propagate errors immediately via `?`, aborting rather than producing unreliable output.
+
+- **Security fix — HSM AAD forwarded end-to-end:** The `aad` parameter in `KeyProvider::encrypt_data` / `decrypt_data` was accepted at the API level but silently dropped (`_aad`) before reaching the HSM daemon. An optional `aad` field (hex-encoded) has been added to `HsmRequest::Encrypt` and `HsmRequest::Decrypt` in the wire protocol and threaded through `HsmClient`, `Pkcs11Provider`, and all three HSM backends (SoftHSM, AWS CloudHSM, Azure HSM). Ciphertext context-binding is now enforced end-to-end.
+
+- **Bug fix — Go client `UseTLS: false` now respected:** `Options.UseTLS` changed from `bool` to `*bool`. The previous `applyDefaults()` logic unconditionally forced TLS on, making plaintext connections impossible regardless of what the caller set. A `nil` pointer now means the default (TLS enabled); an explicit `false` is honoured. Added `BoolPtr()` convenience helper.
+
+- **Bug fix — TypeScript client `rejectUnauthorized: false` now warns instead of throwing:** Operator precedence bug: `!resolved.rejectUnauthorized === false` was parsed as `(!rejectUnauthorized) === false`, making the warn-but-allow branch permanently dead code. Callers who explicitly set `rejectUnauthorized: false` were hitting the `throw` branch instead of receiving a warning. Fixed to `resolved.rejectUnauthorized === false` and the warn path now emits a visible console warning.
 
 ### v1.6.0
 
