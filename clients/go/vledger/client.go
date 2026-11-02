@@ -18,8 +18,17 @@ type Options struct {
 	Port int
 	// WithProofs attaches a Merkle proof to every SELECT result (default: false).
 	WithProofs bool
-	// UseTLS enables TLS 1.3 (default: true).
-	UseTLS bool
+	// UseTLS controls whether TLS 1.3 is used (default: true).
+	//
+	// Use a pointer so the zero value (nil) is distinguishable from an
+	// explicit false. Pass a *bool via the TLS() / NoTLS() helpers:
+	//
+	//   opts := vledger.Options{UseTLS: vledger.BoolPtr(false)}
+	//
+	// nil  → default (TLS enabled)
+	// true → TLS enabled
+	// false → plaintext (development / test environments only)
+	UseTLS *bool
 	// TLSCACert is the path to a PEM CA certificate for server verification.
 	// Leave empty to skip verification (development only).
 	TLSCACert string
@@ -29,6 +38,13 @@ type Options struct {
 	// Timeout is the dial and read/write timeout (default: 30s).
 	Timeout time.Duration
 }
+
+// BoolPtr is a convenience helper that returns a pointer to a bool literal.
+// Use it to set Options.UseTLS explicitly:
+//
+//	opts := vledger.Options{UseTLS: vledger.BoolPtr(false)} // plaintext
+//	opts := vledger.Options{UseTLS: vledger.BoolPtr(true)}  // TLS (same as default)
+func BoolPtr(v bool) *bool { return &v }
 
 func (o *Options) applyDefaults() {
 	if o.Host == "" {
@@ -40,11 +56,18 @@ func (o *Options) applyDefaults() {
 	if o.Timeout == 0 {
 		o.Timeout = 30 * time.Second
 	}
-	if !o.UseTLS {
-		// Preserve zero-value: default is TLS on, so we only set it explicitly
-		// when the caller sets UseTLS = false.
-		o.UseTLS = true
+	// nil means "caller did not set UseTLS" — default to true.
+	// A non-nil pointer (true or false) is the caller's explicit choice and
+	// must not be overridden.
+	if o.UseTLS == nil {
+		o.UseTLS = BoolPtr(true)
 	}
+}
+
+// useTLS reports whether TLS should be used for this connection.
+// Always call applyDefaults() before useTLS().
+func (o *Options) useTLS() bool {
+	return o.UseTLS != nil && *o.UseTLS
 }
 
 // Client is a thread-safe VectorLedger client.
@@ -72,7 +95,7 @@ func (c *Client) dial() error {
 	var conn net.Conn
 	var err error
 
-	if c.opts.UseTLS {
+	if c.opts.useTLS() {
 		tlsCfg := &tls.Config{
 			MinVersion:         tls.VersionTLS13,
 			InsecureSkipVerify: c.opts.InsecureSkipVerify, //nolint:gosec

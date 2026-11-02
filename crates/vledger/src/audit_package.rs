@@ -100,7 +100,10 @@ pub fn generate(
             }
             Ok(())
         })
-        .ok();
+        .context(
+            "Failed to stream ledger entries — audit package would be incomplete. \
+             Aborting to prevent signing a package built from partial data.",
+        )?;
 
     let root: [u8; 32] = if leaf_bytes.is_empty() {
         ZERO_HASH

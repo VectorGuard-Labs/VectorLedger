@@ -133,10 +133,22 @@ impl HsmClient {
     // ── Symmetric operations ──────────────────────────────────────────────
 
     /// Encrypt `plaintext` with the key identified by `key_id`.
-    pub async fn encrypt(&self, key_id: &str, plaintext: &[u8]) -> Result<Vec<u8>, HsmError> {
+    ///
+    /// `aad` is optional additional authenticated data.  When supplied, the
+    /// HSM binds the ciphertext to this context — decryption will fail if
+    /// different AAD is presented.  Callers **should** supply AAD to prevent
+    /// a ciphertext from one context (e.g. table A) being replayed in another
+    /// (e.g. table B) using the same key.
+    pub async fn encrypt(
+        &self,
+        key_id: &str,
+        plaintext: &[u8],
+        aad: Option<&[u8]>,
+    ) -> Result<Vec<u8>, HsmError> {
         let req = HsmRequest::Encrypt {
             key_id: key_id.to_string(),
             plaintext: hex::encode(plaintext),
+            aad: aad.map(hex::encode),
             caller_id: self.caller_id.clone(),
         };
         let resp = self.send(&req).await?;
@@ -148,14 +160,20 @@ impl HsmClient {
     }
 
     /// Decrypt `ciphertext` with the key identified by `key_id`.
+    ///
+    /// `aad` must match the value supplied at encryption time.  If it does
+    /// not match the authentication tag will fail and the HSM will return an
+    /// error.
     pub async fn decrypt(
         &self,
         key_id: &str,
         ciphertext: &[u8],
+        aad: Option<&[u8]>,
     ) -> Result<Zeroizing<Vec<u8>>, HsmError> {
         let req = HsmRequest::Decrypt {
             key_id: key_id.to_string(),
             ciphertext: hex::encode(ciphertext),
+            aad: aad.map(hex::encode),
             caller_id: self.caller_id.clone(),
         };
         let resp = self.send(&req).await?;
@@ -563,17 +581,17 @@ impl KeyProvider for HsmClient {
         &self,
         key_id: &str,
         plaintext: &[u8],
-        _aad: Option<&[u8]>,
+        aad: Option<&[u8]>,
     ) -> Result<Vec<u8>, HsmError> {
-        self.encrypt(key_id, plaintext).await
+        self.encrypt(key_id, plaintext, aad).await
     }
     async fn decrypt_data(
         &self,
         key_id: &str,
         ciphertext: &[u8],
-        _aad: Option<&[u8]>,
+        aad: Option<&[u8]>,
     ) -> Result<Zeroizing<Vec<u8>>, HsmError> {
-        self.decrypt(key_id, ciphertext).await
+        self.decrypt(key_id, ciphertext, aad).await
     }
     async fn sign_data(&self, key_id: &str, message: &[u8]) -> Result<Vec<u8>, HsmError> {
         self.sign(key_id, message).await

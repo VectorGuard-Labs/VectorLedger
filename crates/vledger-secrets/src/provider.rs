@@ -1385,7 +1385,7 @@ impl RemotePyHsmProvider {
         plaintext: &[u8],
     ) -> Result<String, SecretsError> {
         let ct = client
-            .encrypt(&self.key_id, plaintext)
+            .encrypt(&self.key_id, plaintext, None)
             .await
             .map_err(|e| SecretsError::PyHsm(format!("remote PyHSM encrypt: {e}")))?;
         use base64::{engine::general_purpose::STANDARD, Engine};
@@ -1403,7 +1403,7 @@ impl RemotePyHsmProvider {
             .decode(ct_b64.trim())
             .map_err(|e| SecretsError::PyHsm(format!("base64 decode cached blob: {e}")))?;
         let pt = client
-            .decrypt(&self.key_id, &ct)
+            .decrypt(&self.key_id, &ct, None)
             .await
             .map_err(|e| SecretsError::PyHsm(format!("remote PyHSM decrypt: {e}")))?;
         Ok(pt)

@@ -73,7 +73,7 @@ func connectMock(t *testing.T, addr string) *Client {
 		opts: Options{
 			Host:    host,
 			Port:    port,
-			UseTLS:  false,
+			UseTLS:  BoolPtr(false),
 			Timeout: 5 * time.Second,
 		},
 	}

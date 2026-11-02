@@ -100,10 +100,14 @@ export class VledgerClient {
         `connection to ${resolved.host}:${resolved.port}. ` +
         `Pass tlsCaCert: '<path>' to enable verification.`
       );
-    } else if (resolved.tls && !resolved.tlsCaCert && !isLoopback && !resolved.rejectUnauthorized === false) {
-      // Non-loopback without CA cert and without explicit opt-out: refuse.
-      // (rejectUnauthorized was explicitly set to false by the caller — allow it
-      //  but warn loudly.)
+    } else if (resolved.tls && !resolved.tlsCaCert && !isLoopback && resolved.rejectUnauthorized === false) {
+      // Non-loopback, no CA cert, caller explicitly opted out of verification.
+      // Allow it but warn loudly so the setting cannot be silently shipped to production.
+      console.warn(
+        `[vledger-client] WARNING: TLS certificate verification is DISABLED for non-loopback ` +
+        `connection to ${resolved.host}:${resolved.port}. ` +
+        `This is insecure. Provide tlsCaCert: '<path>' before deploying to production.`
+      );
     } else if (resolved.tls && !resolved.tlsCaCert && !isLoopback) {
       throw new VledgerConnectionError(
         `TLS certificate verification is required for non-loopback connections ` +

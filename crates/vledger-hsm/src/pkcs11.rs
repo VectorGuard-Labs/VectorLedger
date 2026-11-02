@@ -41,11 +41,26 @@ pub trait Pkcs11Provider: Send + Sync + 'static {
 
     /// Encrypt `plaintext` with the AES-256-GCM key identified by `label`.
     /// Returns authenticated ciphertext (nonce prepended).
-    async fn encrypt(&self, label: &str, plaintext: &[u8]) -> Result<Vec<u8>, HsmError>;
+    ///
+    /// `aad` is optional additional authenticated data.  When supplied it is
+    /// bound into the authentication tag so the ciphertext cannot be replayed
+    /// in a different context (e.g. different table or key purpose).
+    async fn encrypt(
+        &self,
+        label: &str,
+        plaintext: &[u8],
+        aad: Option<&[u8]>,
+    ) -> Result<Vec<u8>, HsmError>;
 
     /// Decrypt `ciphertext` with the AES-256-GCM key identified by `label`.
-    async fn decrypt(&self, label: &str, ciphertext: &[u8])
-        -> Result<Zeroizing<Vec<u8>>, HsmError>;
+    ///
+    /// `aad` must match the value supplied at encryption time.
+    async fn decrypt(
+        &self,
+        label: &str,
+        ciphertext: &[u8],
+        aad: Option<&[u8]>,
+    ) -> Result<Zeroizing<Vec<u8>>, HsmError>;
 
     /// Sign `message` with the Ed25519 key identified by `label`.
     async fn sign(&self, label: &str, message: &[u8]) -> Result<Vec<u8>, HsmError>;
@@ -121,16 +136,17 @@ impl Pkcs11Provider for SoftHsmProvider {
             .await
     }
 
-    async fn encrypt(&self, label: &str, plaintext: &[u8]) -> Result<Vec<u8>, HsmError> {
-        self.client.encrypt(label, plaintext).await
+    async fn encrypt(&self, label: &str, plaintext: &[u8], aad: Option<&[u8]>) -> Result<Vec<u8>, HsmError> {
+        self.client.encrypt(label, plaintext, aad).await
     }
 
     async fn decrypt(
         &self,
         label: &str,
         ciphertext: &[u8],
+        aad: Option<&[u8]>,
     ) -> Result<Zeroizing<Vec<u8>>, HsmError> {
-        self.client.decrypt(label, ciphertext).await
+        self.client.decrypt(label, ciphertext, aad).await
     }
 
     async fn sign(&self, label: &str, message: &[u8]) -> Result<Vec<u8>, HsmError> {
@@ -218,11 +234,11 @@ impl Pkcs11Provider for AwsCloudHsmProvider {
     async fn generate_signing_key(&self, label: &str) -> Result<(), HsmError> {
         self.inner.generate_signing_key(label).await
     }
-    async fn encrypt(&self, label: &str, plaintext: &[u8]) -> Result<Vec<u8>, HsmError> {
-        self.inner.encrypt(label, plaintext).await
+    async fn encrypt(&self, label: &str, plaintext: &[u8], aad: Option<&[u8]>) -> Result<Vec<u8>, HsmError> {
+        self.inner.encrypt(label, plaintext, aad).await
     }
-    async fn decrypt(&self, label: &str, ct: &[u8]) -> Result<Zeroizing<Vec<u8>>, HsmError> {
-        self.inner.decrypt(label, ct).await
+    async fn decrypt(&self, label: &str, ct: &[u8], aad: Option<&[u8]>) -> Result<Zeroizing<Vec<u8>>, HsmError> {
+        self.inner.decrypt(label, ct, aad).await
     }
     async fn sign(&self, label: &str, message: &[u8]) -> Result<Vec<u8>, HsmError> {
         self.inner.sign(label, message).await
@@ -292,11 +308,11 @@ impl Pkcs11Provider for AzureHsmProvider {
     async fn generate_signing_key(&self, label: &str) -> Result<(), HsmError> {
         self.inner.generate_signing_key(label).await
     }
-    async fn encrypt(&self, label: &str, plaintext: &[u8]) -> Result<Vec<u8>, HsmError> {
-        self.inner.encrypt(label, plaintext).await
+    async fn encrypt(&self, label: &str, plaintext: &[u8], aad: Option<&[u8]>) -> Result<Vec<u8>, HsmError> {
+        self.inner.encrypt(label, plaintext, aad).await
     }
-    async fn decrypt(&self, label: &str, ct: &[u8]) -> Result<Zeroizing<Vec<u8>>, HsmError> {
-        self.inner.decrypt(label, ct).await
+    async fn decrypt(&self, label: &str, ct: &[u8], aad: Option<&[u8]>) -> Result<Zeroizing<Vec<u8>>, HsmError> {
+        self.inner.decrypt(label, ct, aad).await
     }
     async fn sign(&self, label: &str, message: &[u8]) -> Result<Vec<u8>, HsmError> {
         self.inner.sign(label, message).await

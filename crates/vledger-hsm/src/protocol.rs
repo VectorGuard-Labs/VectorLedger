@@ -16,6 +16,12 @@ pub enum HsmRequest {
         #[serde(rename = "keyId")]
         key_id: String,
         plaintext: String,
+        /// Optional additional authenticated data (hex-encoded).
+        /// When present, the HSM includes this in the authentication tag so
+        /// the ciphertext is bound to this context and cannot be replayed
+        /// in a different context (e.g., different table or key purpose).
+        #[serde(rename = "aad", skip_serializing_if = "Option::is_none")]
+        aad: Option<String>,
         #[serde(rename = "callerId")]
         caller_id: String,
     },
@@ -23,6 +29,9 @@ pub enum HsmRequest {
         #[serde(rename = "keyId")]
         key_id: String,
         ciphertext: String,
+        /// Must match the AAD supplied at encryption time.
+        #[serde(rename = "aad", skip_serializing_if = "Option::is_none")]
+        aad: Option<String>,
         #[serde(rename = "callerId")]
         caller_id: String,
     },
