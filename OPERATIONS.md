@@ -1,6 +1,6 @@
 # VectorLedger — Production Operations Runbook
 
-**Version:** 1.6.0  
+**Version:** 1.7.0  
 **Audience:** System administrators and on-call engineers responsible for deployed VectorLedger instances.
 
 This is the operator bible for VectorLedger. Read it end-to-end before going to production.
@@ -94,39 +94,39 @@ Client → TLS 1.3 → vledger-server → SQL parse/plan/execute → vledger-led
 **macOS / Linux:**
 ```bash
 curl --proto '=https' --tlsv1.2 -sSf \
-  https://raw.githubusercontent.com/pavondunbar/VectorLedger/main/install.sh | bash
+  https://raw.githubusercontent.com/VectorGuard-Labs/VectorLedger/main/install.sh | bash
 ```
 
 **Windows (PowerShell):**
 ```powershell
-irm https://raw.githubusercontent.com/pavondunbar/VectorLedger/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/VectorGuard-Labs/VectorLedger/main/install.ps1 | iex
 ```
 
 ### Install from Release Binary
 
-Download from the [GitHub Releases page](https://github.com/pavondunbar/VectorLedger/releases/tag/v1.6.0):
+Download from the [GitHub Releases page](https://github.com/VectorGuard-Labs/VectorLedger/releases/tag/v1.7.0):
 
 | Platform | Filename | wget |
 |---|---|---|
-| Linux x86_64 (glibc) | `vledger-v1.6.0-linux-x86_64.tar.gz` | `wget https://github.com/pavondunbar/VectorLedger/releases/download/v1.6.0/vledger-v1.6.0-linux-x86_64.tar.gz` |
-| Linux x86_64 **musl** (fully static) | `vledger-v1.6.0-linux-x86_64-musl.tar.gz` | `wget https://github.com/pavondunbar/VectorLedger/releases/download/v1.6.0/vledger-v1.6.0-linux-x86_64-musl.tar.gz` |
-| Linux ARM64 (glibc) | `vledger-v1.6.0-linux-aarch64.tar.gz` | `wget https://github.com/pavondunbar/VectorLedger/releases/download/v1.6.0/vledger-v1.6.0-linux-aarch64.tar.gz` |
-| Linux ARM64 **musl** (fully static) | `vledger-v1.6.0-linux-aarch64-musl.tar.gz` | `wget https://github.com/pavondunbar/VectorLedger/releases/download/v1.6.0/vledger-v1.6.0-linux-aarch64-musl.tar.gz` |
-| macOS x86_64 | `vledger-v1.6.0-macos-x86_64.tar.gz` | `wget https://github.com/pavondunbar/VectorLedger/releases/download/v1.6.0/vledger-v1.6.0-macos-x86_64.tar.gz` |
-| macOS ARM64 (Apple Silicon) | `vledger-v1.6.0-macos-aarch64.tar.gz` | `wget https://github.com/pavondunbar/VectorLedger/releases/download/v1.6.0/vledger-v1.6.0-macos-aarch64.tar.gz` |
+| Linux x86_64 (glibc) | `vledger-v1.7.0-linux-x86_64.tar.gz` | `wget https://github.com/VectorGuard-Labs/VectorLedger/releases/download/v1.7.0/vledger-v1.7.0-linux-x86_64.tar.gz` |
+| Linux x86_64 **musl** (fully static) | `vledger-v1.7.0-linux-x86_64-musl.tar.gz` | `wget https://github.com/VectorGuard-Labs/VectorLedger/releases/download/v1.7.0/vledger-v1.7.0-linux-x86_64-musl.tar.gz` |
+| Linux ARM64 (glibc) | `vledger-v1.7.0-linux-aarch64.tar.gz` | `wget https://github.com/VectorGuard-Labs/VectorLedger/releases/download/v1.7.0/vledger-v1.7.0-linux-aarch64.tar.gz` |
+| Linux ARM64 **musl** (fully static) | `vledger-v1.7.0-linux-aarch64-musl.tar.gz` | `wget https://github.com/VectorGuard-Labs/VectorLedger/releases/download/v1.7.0/vledger-v1.7.0-linux-aarch64-musl.tar.gz` |
+| macOS x86_64 | `vledger-v1.7.0-macos-x86_64.tar.gz` | `wget https://github.com/VectorGuard-Labs/VectorLedger/releases/download/v1.7.0/vledger-v1.7.0-macos-x86_64.tar.gz` |
+| macOS ARM64 (Apple Silicon) | `vledger-v1.7.0-macos-aarch64.tar.gz` | `wget https://github.com/VectorGuard-Labs/VectorLedger/releases/download/v1.7.0/vledger-v1.7.0-macos-aarch64.tar.gz` |
 
 > **musl builds:** The `*-musl` binaries are fully statically linked — they have no dependency on glibc and run on any Linux distribution, including Alpine, distroless containers, and systems with older glibc versions. Use them for containerised deployments.
 
 **Verify before deploying:**
 ```bash
-sha256sum -c vledger-v1.6.0-checksums.txt
+sha256sum -c vledger-v1.7.0-checksums.txt
 
 cosign verify-blob \
-  --certificate vledger-v1.6.0-checksums.txt.sig.pem \
-  --signature   vledger-v1.6.0-checksums.txt.sig \
-  --certificate-identity "https://github.com/pavondunbar/VectorLedger/.github/workflows/release.yml@refs/tags/v1.6.0" \
+  --certificate vledger-v1.7.0-checksums.txt.sig.pem \
+  --signature   vledger-v1.7.0-checksums.txt.sig \
+  --certificate-identity "https://github.com/VectorGuard-Labs/VectorLedger/.github/workflows/release.yml@refs/tags/v1.7.0" \
   --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
-  vledger-v1.6.0-checksums.txt
+  vledger-v1.7.0-checksums.txt
 ```
 
 ### Build from Source
@@ -134,7 +134,7 @@ cosign verify-blob \
 Prerequisites: Rust toolchain 1.80+
 
 ```bash
-git clone https://github.com/pavondunbar/VectorLedger.git
+git clone https://github.com/VectorGuard-Labs/VectorLedger.git
 cd VectorLedger
 cargo build --release
 # Binary: target/release/vledger
@@ -171,7 +171,15 @@ cargo build --release
    vledger sql --username admin --query "SELECT VERIFY_CHAIN()"
    ```
 
-> **v1.6.0 upgrade notes:**
+> **v1.7.0 upgrade notes:**
+>
+> **No schema migrations or data directory changes.** This is a documentation and security-hygiene release. No `vledger migrate-*` commands are required.
+>
+> **Repository URL changed:** If you have scripts that reference `https://github.com/pavondunbar/VectorLedger`, update them to `https://github.com/VectorGuard-Labs/VectorLedger`. The old URL redirects but will not redirect indefinitely.
+>
+> **Go client module path:** Update `go.mod` imports from `github.com/pavondunbar/VectorLedger/clients/go/vledger` to `github.com/VectorGuard-Labs/VectorLedger/clients/go/vledger` and run `go mod tidy`.
+>
+> **v1.6.6 upgrade notes:**
 >
 > **SQLite schema migration (version 1 → 2):** On first start after upgrading, the server automatically runs a one-time migration that adds CHECK constraints (`sequence > 0`, status enum, `length(content_hash) = 64`, `length(chain_hash) = 64`) and two append-only guard triggers (`BEFORE UPDATE` / `BEFORE DELETE` on the `entries` table) to the SQLite index. The migration is atomic and crash-safe. Expect a brief pause proportional to the number of entries. After startup confirm it ran: `vledger sql --query "PRAGMA user_version"` should return `2`.
 >
@@ -1128,7 +1136,7 @@ vledger sql --server 127.0.0.1:5433 --username admin \
 
 ```bash
 curl http://127.0.0.1:3000/health
-# {"ok":true,"service":"vledger-mcp","version":"1.5.7","tools":15,...}
+# {"ok":true,"service":"vledger-mcp","version":"1.7.0","tools":15,...}
 ```
 
 ### Prometheus Metrics
@@ -1169,7 +1177,7 @@ VectorLedger's background monitors (hourly `VERIFY_CHAIN`, 15-minute invariant c
 }
 ```
 
-When `alerts.json` is absent, alerts surface only as `tracing::error!` log lines and Prometheus counter increments — the pre-v1.6.0 behaviour.
+When `alerts.json` is absent, alerts surface only as `tracing::error!` log lines and Prometheus counter increments — the pre-v1.7.0 behaviour.
 
 ### Recommended Cron Jobs```cron
 # Daily chain integrity check — 2 AM UTC
@@ -1739,7 +1747,7 @@ Regardless of which agent you use, you can confirm the MCP server is reachable a
 ```bash
 # Health check — returns tool count and agent query usage
 curl http://127.0.0.1:3000/health
-# {"ok":true,"service":"vledger-mcp","version":"1.6.0","tools":15,
+# {"ok":true,"service":"vledger-mcp","version":"1.7.0","tools":15,
 #  "agent_queries_used":0,"agent_queries_limit":100,"agent_queries_remaining":100}
 ```
 
@@ -2063,7 +2071,7 @@ Expected output: 7 tests pass —
 - `partial_correction_recovery_only_missing_half_written`
 - `correction_does_not_disturb_unrelated_entries`
 - `high_concurrency_correction_stress_50_tasks`
-- `schema_version_is_current` *(v1.6.0: asserts `PRAGMA user_version == 2`)*
+- `schema_version_is_current` *(v1.7.0: asserts `PRAGMA user_version == 2`)*
 - `database_unique_constraint_prevents_duplicate_without_app_layer_check` *(asserts schema version 2 before bypassing `post_entry` to prove SQLite UNIQUE + CHECK constraints fire independently)*
 
 All three phases plus the concurrency suite must pass before deploying a new build to production.
@@ -2125,7 +2133,7 @@ Run through this entire checklist before going to production:
 - [ ] Bind MCP server to `127.0.0.1` (the default) unless behind a TLS-terminating reverse proxy
 - [ ] Restrict network access to port 3000 to trusted AI assistant clients only
 - [ ] Confirm MCP server version is 1.5.5 or later (contains SQL injection fixes for date parameters and LIKE wildcards)
-- [ ] Confirm database schema is at version 2 (v1.6.0+) — verify with `vledger sql --query "PRAGMA user_version"` against the SQLite file; should return `2`
+- [ ] Confirm database schema is at version 2 (v1.7.0+) — verify with `vledger sql --query "PRAGMA user_version"` against the SQLite file; should return `2`
 - [ ] If running an older version, disable `summarize_period`, `audit_report`, and `resolve_account` tools via firewall or by not granting MCP access to untrusted callers until upgraded
 
 **Alert channels (recommended for production):**

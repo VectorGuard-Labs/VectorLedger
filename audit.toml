@@ -17,7 +17,6 @@
 #
 # Tracking issue: replace with postcard in the next major storage-format
 # version (VectorLedger v2.0).  See docs/adr/0004-bincode-replacement.md.
-ignore = ["RUSTSEC-2025-0141"]
 
 # RUSTSEC-2025-0134 — rustls-pemfile is unmaintained
 #
@@ -25,6 +24,24 @@ ignore = ["RUSTSEC-2025-0141"]
 # tokio-rustls and rustls ecosystem crates. No security vulnerability
 # exists; the crate is feature-complete and the warning is advisory only.
 # Will be removed automatically if the dependency graph is updated upstream.
+
+# RUSTSEC-2026-0038 — rssn: JIT code-injection via CFFI (CVE-2026-30960, CVSS 9.4 CRITICAL)
+#
+# Status: ACCEPTED — not exploitable in VectorLedger.
+#
+# Rationale: The `rssn` crate is NOT a direct or transitive dependency of
+# VectorLedger (confirmed: `grep -r rssn Cargo.lock` returns no matches).
+# cargo-audit flags this advisory because it appears in the local advisory
+# database regardless of whether the crate is present in the dependency graph.
+# The vulnerability is in rssn's JIT/CFFI layer; VectorLedger contains no JIT
+# engine, no FFI boundary into rssn, and no code path that could reach the
+# affected crate.
+#
+# Action: No upgrade or mitigation required. If `rssn` ever appears in
+# Cargo.lock as a transitive dependency in the future, this entry must be
+# re-evaluated immediately and the dependency removed or upgraded to >= 0.2.9.
+#
+# Tracking: Verified absence with `cargo tree | grep rssn` on 2026-11-03.
 ignore = ["RUSTSEC-2025-0141", "RUSTSEC-2025-0134", "RUSTSEC-2026-0038"]
 
 

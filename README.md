@@ -4,7 +4,7 @@
 
 VectorLedger is a purpose-built, append-only financial ledger written entirely in Rust. Every journal entry is linked by a tamper-evident BLAKE3 hash chain, every page of data is encrypted at rest with AES-256-GCM, and every query result can carry a cryptographic Merkle proof proving the returned data has not been modified since it was written. Historical tampering is **cryptographically detectable** — any modification to a past record invalidates every hash in the chain from that point forward.
 
-Built by [VectorGuard Labs](https://vectorguardlabs.com) · **Version 1.6.5** · License: BUSL-1.1
+Built by [VectorGuard Labs](https://vectorguardlabs.com) · **Version 1.7.0** · License: BUSL-1.1
 
 ---
 
@@ -163,26 +163,26 @@ VectorLedger makes tampering **cryptographically detectable**:
 **macOS / Linux:**
 ```bash
 curl --proto '=https' --tlsv1.2 -sSf \
-  https://raw.githubusercontent.com/pavondunbar/VectorLedger/main/install.sh | bash
+  https://raw.githubusercontent.com/VectorGuard-Labs/VectorLedger/main/install.sh | bash
 ```
 
 **Windows (PowerShell):**
 ```powershell
-irm https://raw.githubusercontent.com/pavondunbar/VectorLedger/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/VectorGuard-Labs/VectorLedger/main/install.ps1 | iex
 ```
 
 ### Option 2 — Download a release binary
 
-Pre-built binaries for v1.6.5 are available on the [GitHub Releases page](https://github.com/pavondunbar/VectorLedger/releases/tag/v1.6.5):
+Pre-built binaries for v1.7.0 are available on the [GitHub Releases page](https://github.com/VectorGuard-Labs/VectorLedger/releases/tag/v1.7.0):
 
 | Platform | Filename | wget |
 |---|---|---|
-| Linux x86_64 (glibc) | `vledger-v1.6.5-linux-x86_64.tar.gz` | `wget https://github.com/pavondunbar/VectorLedger/releases/download/v1.6.5/vledger-v1.6.5-linux-x86_64.tar.gz` |
-| Linux x86_64 **musl** (fully static) | `vledger-v1.6.5-linux-x86_64-musl.tar.gz` | `wget https://github.com/pavondunbar/VectorLedger/releases/download/v1.6.5/vledger-v1.6.5-linux-x86_64-musl.tar.gz` |
-| Linux ARM64 (glibc) | `vledger-v1.6.5-linux-aarch64.tar.gz` | `wget https://github.com/pavondunbar/VectorLedger/releases/download/v1.6.5/vledger-v1.6.5-linux-aarch64.tar.gz` |
-| Linux ARM64 **musl** (fully static) | `vledger-v1.6.5-linux-aarch64-musl.tar.gz` | `wget https://github.com/pavondunbar/VectorLedger/releases/download/v1.6.5/vledger-v1.6.5-linux-aarch64-musl.tar.gz` |
-| macOS x86_64 | `vledger-v1.6.5-macos-x86_64.tar.gz` | `wget https://github.com/pavondunbar/VectorLedger/releases/download/v1.6.5/vledger-v1.6.5-macos-x86_64.tar.gz` |
-| macOS ARM64 (Apple Silicon) | `vledger-v1.6.5-macos-aarch64.tar.gz` | `wget https://github.com/pavondunbar/VectorLedger/releases/download/v1.6.5/vledger-v1.6.5-macos-aarch64.tar.gz` |
+| Linux x86_64 (glibc) | `vledger-v1.7.0-linux-x86_64.tar.gz` | `wget https://github.com/VectorGuard-Labs/VectorLedger/releases/download/v1.7.0/vledger-v1.7.0-linux-x86_64.tar.gz` |
+| Linux x86_64 **musl** (fully static) | `vledger-v1.7.0-linux-x86_64-musl.tar.gz` | `wget https://github.com/VectorGuard-Labs/VectorLedger/releases/download/v1.7.0/vledger-v1.7.0-linux-x86_64-musl.tar.gz` |
+| Linux ARM64 (glibc) | `vledger-v1.7.0-linux-aarch64.tar.gz` | `wget https://github.com/VectorGuard-Labs/VectorLedger/releases/download/v1.7.0/vledger-v1.7.0-linux-aarch64.tar.gz` |
+| Linux ARM64 **musl** (fully static) | `vledger-v1.7.0-linux-aarch64-musl.tar.gz` | `wget https://github.com/VectorGuard-Labs/VectorLedger/releases/download/v1.7.0/vledger-v1.7.0-linux-aarch64-musl.tar.gz` |
+| macOS x86_64 | `vledger-v1.7.0-macos-x86_64.tar.gz` | `wget https://github.com/VectorGuard-Labs/VectorLedger/releases/download/v1.7.0/vledger-v1.7.0-macos-x86_64.tar.gz` |
+| macOS ARM64 (Apple Silicon) | `vledger-v1.7.0-macos-aarch64.tar.gz` | `wget https://github.com/VectorGuard-Labs/VectorLedger/releases/download/v1.7.0/vledger-v1.7.0-macos-aarch64.tar.gz` |
 
 > **musl builds** (`*-musl`) are fully statically linked — no glibc dependency. Use them for Alpine Linux, distroless containers, or any system with an older or non-standard libc.
 
@@ -190,15 +190,15 @@ Each release is accompanied by a checksums file and a CycloneDX SBOM. Verify bef
 
 ```bash
 # Verify SHA-256 checksum
-sha256sum -c vledger-v1.6.5-checksums.txt
+sha256sum -c vledger-v1.7.0-checksums.txt
 
 # Verify cosign signature (keyless OIDC)
 cosign verify-blob \
-  --certificate vledger-v1.6.5-checksums.txt.sig.pem \
-  --signature   vledger-v1.6.5-checksums.txt.sig \
-  --certificate-identity "https://github.com/pavondunbar/VectorLedger/.github/workflows/release.yml@refs/tags/v1.6.5" \
+  --certificate vledger-v1.7.0-checksums.txt.sig.pem \
+  --signature   vledger-v1.7.0-checksums.txt.sig \
+  --certificate-identity "https://github.com/VectorGuard-Labs/VectorLedger/.github/workflows/release.yml@refs/tags/v1.7.0" \
   --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
-  vledger-v1.6.5-checksums.txt
+  vledger-v1.7.0-checksums.txt
 ```
 
 ### Option 3 — Build from source
@@ -206,7 +206,7 @@ cosign verify-blob \
 Prerequisites: Rust toolchain 1.80+
 
 ```bash
-git clone https://github.com/pavondunbar/VectorLedger.git
+git clone https://github.com/VectorGuard-Labs/VectorLedger.git
 cd VectorLedger
 cargo build --release
 # Binary at: target/release/vledger
@@ -490,7 +490,7 @@ Install: `npm install` in `clients/typescript/`
 ### Go
 
 ```go
-import "github.com/pavondunbar/VectorLedger/clients/go/vledger"
+import "github.com/VectorGuard-Labs/VectorLedger/clients/go/vledger"
 
 client, err := vledger.Connect(vledger.Options{
     Host:   "127.0.0.1",
@@ -555,7 +555,7 @@ vledger-mcp \
 
 ```bash
 curl http://127.0.0.1:3000/health
-# {"ok":true,"service":"vledger-mcp","version":"1.6.5","tools":15,
+# {"ok":true,"service":"vledger-mcp","version":"1.7.0","tools":15,
 #  "agent_queries_used":3,"agent_queries_limit":100,"agent_queries_remaining":97}
 ```
 
@@ -713,6 +713,14 @@ vledger-bench \
 ---
 
 ## Changelog
+
+### v1.7.0
+
+- **Security — brute-force protection confirmed and documented:** A full audit of `crates/vledger-server` confirmed four independent, layered auth-protection mechanisms are active in the release binary: (1) per-IP token-bucket rate limiter (burst=10, refill=2/sec) at the TCP accept loop — excess connections are dropped before TLS or Argon2 work begins; (2) per-username account lockout after 5 consecutive failures with a 5-minute cooldown; (3) exponential back-off delay (200 ms → 3 000 ms, capped) inserted server-side after every failure outside the lock; (4) per-connection attempt cap of 5 — connection forcibly closed, requiring TCP reconnect and a new IP token. The pgwire server (port 5432) has its own matching per-IP token bucket. All mechanisms documented in `SECURITY.md` § 14.
+
+- **Security advisory hygiene — `RUSTSEC-2026-0038` documented in `audit.toml`:** Added full rationale for the `rssn` JIT/CFFI code-injection advisory (CVE-2026-30960, CVSS 9.4 CRITICAL): `rssn` is not a direct or transitive dependency of VectorLedger (confirmed via `cargo tree`). Re-evaluation instructions included for any future scenario where `rssn` appears in `Cargo.lock`. Removed a duplicate `RUSTSEC-2025-0141` ignore entry.
+
+- **Repository moved to VectorGuard Labs organisation:** Canonical URL is now `https://github.com/VectorGuard-Labs/VectorLedger`. All documentation, install scripts, cosign certificate identities, and the Go client module path updated. The previous URL redirects.
 
 ### v1.6.5
 
