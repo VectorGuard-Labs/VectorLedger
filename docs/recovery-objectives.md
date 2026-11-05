@@ -201,6 +201,8 @@ see `docs/observability.md`) should have alerts:
 | `vledger_backup_age_seconds` | > 14400 (4 h) | Warning |
 | `vledger_chain_verification_failures_total` | > 0 | Critical (page on-call) |
 | `vledger_auth_failures_total` rate | > 10/min | Warning (brute-force) |
+| `vledger_ingest_entries_failed_total` | > 0 | Warning (check ingestion logs) |
+| `vledger_ingest_chain_verified` | `false` | Critical (stop ingestion, page on-call) |
 
 ---
 

@@ -146,6 +146,9 @@ VectorLedger makes tampering **cryptographically detectable**:
 | `vledger-replication` | Synchronous hot-standby WAL replication |
 | `vledger-license` | License tier enforcement, Ed25519 verification |
 | `vledger-kani` | 21 formal verification (Kani) proof harnesses |
+| `vledger-banking-core` | Vendor-agnostic banking connector trait and normalized types |
+| `vledger-banno-connector` | Jack Henry Banno Consumer API connector (OAuth 2.0 + PKCE) |
+| `vledger-ingest` | Ingestion pipeline: banking connector → VectorLedger journal entries |
 
 ### Key Invariants
 
@@ -627,6 +630,98 @@ agent = Agent(
 
 ---
 
+## Banking Connectors
+
+VectorLedger ships a vendor-agnostic banking connector framework that ingests transaction data from external banking APIs, normalizes it into double-entry journal entries, and posts it to the ledger — extending the BLAKE3 hash chain on every write.
+
+### Architecture
+
+```
+Banking Core / Open Banking API
+        │
+        ▼
+vledger-banno-connector  (or any future connector)
+        │  implements CoreBankingConnector trait
+        ▼
+vledger-banking-core     (vendor-agnostic normalized types)
+        │  NormalizedAccount, NormalizedTransaction, IngestRecord
+        ▼
+vledger-ingest pipeline
+        │  account setup, double-entry posting, idempotency, audit log
+        ▼
+LedgerStore              (BLAKE3 chain extended, WAL fsynced)
+        │
+        ▼
+Audit Package            (Ed25519-signed Merkle commitment)
+```
+
+### Crates
+
+| Crate | Responsibility |
+|---|---|
+| `vledger-banking-core` | `CoreBankingConnector` trait, `NormalizedAccount`, `NormalizedTransaction`, `IngestRecord`, `MinorUnits` amount parser |
+| `vledger-banno-connector` | Jack Henry Banno Consumer API: OAuth 2.0 Authorization Code + PKCE, account and transaction fetch, field mapping |
+| `vledger-ingest` | Full ingestion pipeline: account provisioning, double-entry posting with idempotency keys, chain verification, audit package generation |
+
+### Vendor-Agnostic by Design
+
+`vledger-banking-core` and `vledger-ingest` contain zero vendor-specific code. Adding support for a new banking provider (Plaid, FIS, Fiserv, Open Banking UK/PSD2, jXchange SOAP) requires only a new connector crate that implements `CoreBankingConnector`. The ingestion pipeline, cryptographic chain, and audit package generation are identical regardless of source.
+
+### Running the Ingestion Pipeline
+
+```bash
+# Set environment variables
+export BANNO_CLIENT_ID=<your_client_id>
+export BANNO_CLIENT_SECRET=<your_client_secret>
+
+# Initialize the data directory (first time only)
+vledger init --data-dir ./vledger-data --key-source file
+
+# Authenticate and get a token (interactive OAuth flow)
+python3 ~/vectorguard/jxchange/auth.py
+
+# Run the ingestion pipeline with a pre-existing token
+vledger-ingest \
+  --data-dir ./vledger-data \
+  --token <access_token> \
+  --user-id <user_id_from_token> \
+  --audit-package ./audit-package.json
+
+# Or use interactive OAuth (opens browser)
+vledger-ingest \
+  --data-dir ./vledger-data \
+  --source banno \
+  --audit-package ./audit-package.json
+```
+
+### Idempotency
+
+The pipeline is safe to run on a schedule. Every transaction is posted with the source transaction ID as the idempotency key. Re-running the pipeline against the same data produces a report showing `Posted: 0 / Skipped: N` — no double-posting regardless of how many times it runs.
+
+### Querying Ingested Data
+
+After ingestion, query the data with `vledger sql`:
+
+```bash
+# All entries
+vledger sql --data-dir ./vledger-data --username admin \
+  --query "SELECT sequence, description, status FROM ledger LIMIT 100"
+
+# Account balances
+vledger sql --data-dir ./vledger-data --username admin \
+  --query "SELECT code, name, account_type, balance FROM accounts"
+
+# Verify the hash chain
+vledger sql --data-dir ./vledger-data --username admin \
+  --query "SELECT VERIFY_CHAIN()"
+
+# Merkle root over all entries
+vledger sql --data-dir ./vledger-data --username admin \
+  --query "SELECT MERKLE_ROOT(1, 2)"
+```
+
+---
+
 ## pgwire Support
 
 VectorLedger implements the PostgreSQL wire protocol v3 on port 5432. Requires **Starter or higher** license.
@@ -721,6 +816,15 @@ vledger-bench \
 - **Security advisory hygiene — `RUSTSEC-2026-0038` documented in `audit.toml`:** Added full rationale for the `rssn` JIT/CFFI code-injection advisory (CVE-2026-30960, CVSS 9.4 CRITICAL): `rssn` is not a direct or transitive dependency of VectorLedger (confirmed via `cargo tree`). Re-evaluation instructions included for any future scenario where `rssn` appears in `Cargo.lock`. Removed a duplicate `RUSTSEC-2025-0141` ignore entry.
 
 - **Repository moved to VectorGuard Labs organisation:** Canonical URL is now `https://github.com/VectorGuard-Labs/VectorLedger`. All documentation, install scripts, cosign certificate identities, and the Go client module path updated. The previous URL redirects.
+
+- **Banking connector framework — three new crates:** A vendor-agnostic banking connector framework ships with this release, enabling external banking data to flow into VectorLedger's cryptographic ledger engine.
+  - `vledger-banking-core` — `CoreBankingConnector` trait, `NormalizedAccount`, `NormalizedTransaction`, `IngestRecord`, currency-aware `MinorUnits` decimal parser. 15 unit tests including correctness checks on amount parsing edge cases.
+  - `vledger-banno-connector` — Jack Henry Banno Consumer API connector implementing `CoreBankingConnector`. Full OAuth 2.0 Authorization Code + PKCE flow, account and transaction fetch, field mapping from Jack Henry's JSON to normalized types. 21 unit tests including PKCE vector verification against Jack Henry's own test values.
+  - `vledger-ingest` — CLI binary and library for the full ingestion pipeline: account provisioning, `EXTERNAL_TRANSFER` contra-account management, double-entry posting with idempotency keys (safe to run on a schedule — no double-posting), BLAKE3 chain verification, Ed25519-signed Merkle audit package generation. 4 unit tests covering account setup idempotency and type mapping.
+
+- **Ingestion idempotency counter fix:** The pipeline's `Skipped` counter now correctly detects when `post_entry()` returns an existing sequence number due to an idempotency key match, using `entry_count()` before/after comparison. Previously re-runs reported `Posted: N / Skipped: 0` even though no new entries were written.
+
+- **Jack Henry Garden integration validated end-to-end:** The pipeline was tested against Jack Henry's Banno Garden test institution. Two accounts (checking `x5107`, savings `x5115`) and two transactions (both `$1,000.00 FUNDING NEW ACCOUNT` deposits) were ingested, BLAKE3 chain verified, and an Ed25519-signed audit package produced. Idempotency confirmed across multiple runs — Merkle root identical on every subsequent run.
 
 ### v1.6.5
 

@@ -96,6 +96,7 @@ We use [CVSS v3.1](https://www.first.org/cvss/v3.1/specification-document) for s
 - The four-eyes dual-control approval workflow
 - The compliance engine and audit log
 - The secrets manager backends
+- The banking connector framework (`vledger-banking-core`, `vledger-banno-connector`, `vledger-ingest`)
 
 **Out of scope:**
 - Third-party libraries (report to their maintainers and the [Rust Advisory Database](https://rustsec.org))
@@ -970,3 +971,41 @@ Found by `fuzz_sql_parser`.
 The `fuzz_transaction` harness fed raw bytes directly to `bincode::serde::decode_from_slice` without an allocation limit. Fixed by adding `.with_limit::<{1 MiB}>()` to the decode config. Production code validates payload sizes at the WAL reader layer before reaching bincode.
 
 Found by `fuzz_transaction`.
+
+---
+
+## 22. Banking Connector Security
+
+### Credential Handling
+
+The banking connector framework (`vledger-banking-core`, `vledger-banno-connector`, `vledger-ingest`) handles OAuth credentials for third-party banking APIs. The following controls are in place and must be maintained by operators:
+
+- `BANNO_CLIENT_SECRET` and any OAuth access tokens must be stored in a secrets manager (HashiCorp Vault, AWS Secrets Manager, or equivalent) and loaded as environment variables at runtime — never committed to source control, configuration files, or logs.
+- Access tokens expire in 900 seconds (15 minutes). The connector does not persist tokens to disk. Each ingestion run must provide a fresh token via `--token` or perform the interactive OAuth flow.
+- The PKCE `code_verifier` is single-use and generated fresh for every authorization request using `OsRng`. It is never persisted beyond the token exchange.
+- The OAuth `state` parameter is generated as a fresh UUID per authorization request to prevent CSRF attacks. The redirect handler verifies the returned state matches before proceeding.
+
+### Data Isolation
+
+- Ingested transaction data is stored inside the VectorLedger data directory under the same AES-256-GCM encryption and BLAKE3 hash chain protections as all other ledger data.
+- The data directory must have mode 0700 and be accessible only to the service user running `vledger-ingest`.
+- `last-ingest-report.json` and generated audit packages contain account identifiers and transaction counts. Treat them as sensitive — do not commit to source control or expose publicly.
+
+### Idempotency as a Security Control
+
+Every transaction is posted with the source transaction ID as the idempotency key. This prevents double-posting if the pipeline is run multiple times against the same data — including in failure/retry scenarios. The idempotency guarantee is enforced at two independent layers:
+
+1. Application layer: `idempotency_key_exists()` check inside `post_entry()` running atomically under the exclusive write lock.
+2. Database layer: `UNIQUE(idempotency_key)` constraint on the SQLite `entries` table (v1.5.7+), which fires even if the application-layer check is bypassed.
+
+### Chain Integrity After Ingestion
+
+The pipeline calls `verify_chain_integrity()` after every run. If verification fails, the pipeline exits with a non-zero status and logs `❌ Hash chain verification FAILED`. Operators must treat a chain verification failure as a security event — stop all ingestion, investigate, and restore from the most recent verified backup before resuming.
+
+### Third-Party API Trust Boundary
+
+Data returned by the banking API is treated as untrusted input. Every field is explicitly mapped in `crates/vledger-banno-connector/src/mapping.rs` — no raw API response objects are passed directly to the ledger engine. Amount strings are parsed to `i64` minor units with explicit precision handling; malformed amounts cause the transaction to be skipped with a logged warning, not a panic.
+
+### Supported Versions
+
+The banking connector crates follow the same support policy as the core VectorLedger crates. See §3 (Supported Versions) for the current support table.

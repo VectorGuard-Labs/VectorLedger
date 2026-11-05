@@ -173,7 +173,11 @@ cargo build --release
 
 > **v1.7.0 upgrade notes:**
 >
-> **No schema migrations or data directory changes.** This is a documentation and security-hygiene release. No `vledger migrate-*` commands are required.
+> **No schema migrations or data directory changes.** This is a documentation, security-hygiene, and banking connector release. No `vledger migrate-*` commands are required.
+>
+> **Three new crates added:** `vledger-banking-core`, `vledger-banno-connector`, and `vledger-ingest` are new workspace members. They do not affect the core `vledger` binary or any existing data directories. Build from source with `cargo build --release` as usual — the new crates compile automatically.
+>
+> **`vledger-ingest` binary:** The ingestion pipeline ships as a standalone binary `vledger-ingest`. It is not part of the main `vledger` binary. Deploy it separately on any machine that needs to pull data from banking connectors.
 >
 > **Repository URL changed:** If you have scripts that reference `https://github.com/pavondunbar/VectorLedger`, update them to `https://github.com/VectorGuard-Labs/VectorLedger`. The old URL redirects but will not redirect indefinitely.
 >
@@ -2399,3 +2403,186 @@ These numbers are measured with `group_commit` at default 2 ms flush interval. `
 - Retain at least 30 days of backup archives
 
 Measure your actual RTO by timing a restore drill on a representative dataset. Do not rely on estimates — time it.
+
+---
+
+## 24. Banking Connector Integration
+
+VectorLedger ships a vendor-agnostic banking connector framework comprising three crates. This section covers operating the `vledger-ingest` pipeline in production.
+
+### Architecture
+
+```
+Banking API (Jack Henry Banno, Plaid, Open Banking, etc.)
+        │
+        ▼
+vledger-banno-connector  (or any CoreBankingConnector implementation)
+        │
+        ▼
+vledger-ingest pipeline
+        │  1. ensure_contra_account()   — creates EXTERNAL_TRANSFER if absent
+        │  2. ensure_account()          — creates VectorLedger accounts (idempotent)
+        │  3. fetch_transactions()      — pulls from banking API
+        │  4. post_entry()              — double-entry, idempotency key dedup
+        │  5. verify_chain_integrity()  — BLAKE3 chain verified after every run
+        │  6. generate_audit_package()  — Ed25519-signed Merkle commitment
+        ▼
+LedgerStore (WAL fsynced, chain extended)
+```
+
+### Prerequisites
+
+1. VectorLedger data directory must be initialized before first ingestion run:
+
+```bash
+vledger init --data-dir /var/lib/vledger/data --key-source file
+```
+
+2. Environment variables must be set:
+
+```bash
+export BANNO_CLIENT_ID=<client_id_from_developer_dashboard>
+export BANNO_CLIENT_SECRET=<client_secret_from_developer_dashboard>
+export BANNO_REDIRECT_URI=http://localhost:8080/dynamic   # default
+export BANNO_BASE_URL=https://digital.garden-fi.com       # Garden / override for production
+```
+
+### Running the Pipeline
+
+**Interactive mode (OAuth browser flow):**
+```bash
+vledger-ingest \
+  --data-dir /var/lib/vledger/data \
+  --source banno \
+  --audit-package /var/lib/vledger/audit/$(date +%Y%m%d)-audit.json \
+  --domain banno-production
+```
+
+**Scripted / CI mode (pre-existing token):**
+```bash
+vledger-ingest \
+  --data-dir /var/lib/vledger/data \
+  --token <access_token> \
+  --user-id <user_id_from_token> \
+  --audit-package /var/lib/vledger/audit/$(date +%Y%m%d)-audit.json \
+  --domain banno-production
+```
+
+**All flags:**
+
+| Flag | Default | Description |
+|---|---|---|
+| `-d, --data-dir <PATH>` | `./vledger-data` | VectorLedger data directory |
+| `-s, --source <NAME>` | `banno` | Connector to use (`banno` is the only built-in connector) |
+| `--token <TOKEN>` | — | Pre-existing OAuth access token (skips interactive flow) |
+| `--user-id <ID>` | — | User ID associated with the token (required with `--token`) |
+| `-o, --audit-package <PATH>` | auto-timestamped | Path to write the Ed25519-signed Merkle audit package |
+| `--domain <DOMAIN>` | `banno-garden` | VectorLedger domain for ingested journal entries |
+| `-l, --log-level <LEVEL>` | `info` | Log level (trace, debug, info, warn, error) |
+
+### Idempotency
+
+The pipeline is safe to run on a schedule. Every transaction is posted with the source transaction ID as the idempotency key. Re-running against already-ingested data produces:
+
+```
+║  TRANSACTIONS                                 ║
+║    Fetched:   N                               ║
+║    Posted:    0                               ║
+║    Skipped:   N                               ║
+║    Failed:    0                               ║
+```
+
+No duplicate entries are ever written. The Merkle root is identical across all runs over the same data set.
+
+### Ingestion Report
+
+Every run writes a JSON report to `<data-dir>/last-ingest-report.json`:
+
+```json
+{
+  "started_at": "2026-11-05T01:20:24Z",
+  "completed_at": "2026-11-05T01:20:25Z",
+  "connector": "vledger-banno-connector",
+  "source_system": "Jack Henry Banno Consumer API",
+  "accounts_fetched": 2,
+  "accounts_created": 2,
+  "accounts_existing": 0,
+  "transactions_fetched": 2,
+  "entries_posted": 2,
+  "entries_skipped": 0,
+  "entries_failed": 0,
+  "total_ledger_entries": 2,
+  "chain_tip": "560c40ec...",
+  "chain_verified": true,
+  "audit_package_path": "./audit-package.json"
+}
+```
+
+### Querying Ingested Data
+
+```bash
+# All entries
+vledger sql --data-dir /var/lib/vledger/data --username admin \
+  --query "SELECT sequence, description, status, domain FROM ledger LIMIT 100"
+
+# Specific entry by sequence number
+vledger sql --data-dir /var/lib/vledger/data --username admin \
+  --query "SELECT * FROM ledger WHERE sequence = 1"
+
+# Account balances
+vledger sql --data-dir /var/lib/vledger/data --username admin \
+  --query "SELECT code, name, account_type, currency, balance FROM accounts"
+
+# Verify the hash chain
+vledger sql --data-dir /var/lib/vledger/data --username admin \
+  --query "SELECT VERIFY_CHAIN()"
+
+# Merkle root over a range
+vledger sql --data-dir /var/lib/vledger/data --username admin \
+  --query "SELECT MERKLE_ROOT(1, 100)"
+```
+
+### Adding a New Banking Connector
+
+To integrate a new banking provider, create a new crate that implements `CoreBankingConnector` from `vledger-banking-core`:
+
+```rust
+use vledger_banking_core::{
+    CoreBankingConnector, CoreBankingError,
+    types::{AccountQuery, ConnectorStatus, NormalizedAccount,
+            NormalizedTransaction, TransactionQuery},
+};
+
+pub struct MyBankConnector { /* auth state, http client */ }
+
+impl CoreBankingConnector for MyBankConnector {
+    async fn authenticate(&mut self) -> Result<(), CoreBankingError> { … }
+    async fn fetch_accounts(&self, params: &AccountQuery)
+        -> Result<Vec<NormalizedAccount>, CoreBankingError> { … }
+    async fn fetch_transactions(&self, params: &TransactionQuery)
+        -> Result<Vec<NormalizedTransaction>, CoreBankingError> { … }
+    async fn health_check(&self) -> ConnectorStatus { … }
+    fn name(&self) -> &'static str { "vledger-mybank-connector" }
+    fn source_system(&self) -> &'static str { "My Bank API" }
+}
+```
+
+Pass the connector to `IngestPipeline::run()` — the pipeline, chain verification, and audit package generation work identically regardless of source system.
+
+### Monitoring
+
+Add these checks to your existing monitoring:
+
+| Check | Threshold | Action |
+|---|---|---|
+| `chain_verified: false` in report | Any | Stop ingestion, run `VERIFY_CHAIN()`, page on-call |
+| `entries_failed > 0` in report | Any | Investigate failed transactions in logs |
+| Ingestion run not completed | > 24 h | Alert — pipeline may be stalled |
+| Audit package not generated | Any run | Verify `--audit-package` flag is set |
+
+### Security Notes
+
+- Store `BANNO_CLIENT_SECRET` in a secrets manager (Vault, AWS Secrets Manager) — never in environment files committed to source control.
+- OAuth access tokens expire in 900 seconds (15 minutes). For scheduled runs, implement token refresh or re-authenticate before each run.
+- The data directory contains ingested transaction data. Apply the same access controls as the VectorLedger data directory — mode 0700, accessible only to the `vledger` service user.
+- Never commit the data directory, `last-ingest-report.json`, or audit package files to source control.

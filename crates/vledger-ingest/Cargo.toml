@@ -1,0 +1,50 @@
+[package]
+name        = "vledger-ingest"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "Ingestion pipeline: banking connector → VectorLedger journal entries"
+
+[[bin]]
+name = "vledger-ingest"
+path = "src/main.rs"
+
+[dependencies]
+vledger-banking-core  = { path = "../vledger-banking-core" }
+vledger-banno-connector = { path = "../vledger-banno-connector" }
+vledger-ledger        = { path = "../vledger-ledger" }
+vledger-audit         = { path = "../vledger-audit" }
+vledger-crypto        = { path = "../vledger-crypto" }
+
+# Async runtime
+tokio       = { workspace = true }
+
+# Serialization
+serde       = { workspace = true }
+serde_json  = { workspace = true }
+
+# Error handling
+thiserror   = { workspace = true }
+anyhow      = { workspace = true }
+
+# Logging
+tracing             = { workspace = true }
+tracing-subscriber  = { workspace = true }
+
+# Time
+chrono = { workspace = true }
+
+# UUID
+uuid = { workspace = true }
+
+# Hex encoding
+hex = { workspace = true }
+
+# CLI
+clap = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
