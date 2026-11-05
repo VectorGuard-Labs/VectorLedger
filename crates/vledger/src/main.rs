@@ -280,6 +280,47 @@ enum Commands {
         password: Option<String>,
     },
 
+    /// Ingest banking data from a connector into VectorLedger.
+    ///
+    /// Pulls accounts and transactions from a banking API (e.g. Jack Henry
+    /// Banno), posts them as double-entry journal entries with idempotency
+    /// keys, verifies the BLAKE3 hash chain, and writes an Ed25519-signed
+    /// Merkle audit package.
+    ///
+    /// Safe to run on a schedule — idempotency keys prevent double-posting.
+    ///
+    /// Credentials are read from environment variables:
+    ///   BANNO_CLIENT_ID, BANNO_CLIENT_SECRET
+    ///   BANNO_ACCESS_TOKEN, BANNO_USER_ID  (for scripted / systemd use)
+    #[command(name = "ingest")]
+    Ingest {
+        /// Banking source connector to use.
+        #[arg(short, long, default_value = "banno")]
+        source: String,
+
+        /// Pre-existing OAuth access token (skips interactive browser flow).
+        /// Typically set via the BANNO_ACCESS_TOKEN environment variable for
+        /// systemd / scheduled deployments.
+        /// Falls back to BANNO_ACCESS_TOKEN env var.
+        #[arg(long)]
+        token: Option<String>,
+
+        /// User ID associated with the access token.
+        /// Required when --token is provided.
+        /// Falls back to BANNO_USER_ID env var.
+        #[arg(long)]
+        user_id: Option<String>,
+
+        /// Path to write the Ed25519-signed Merkle audit package.
+        /// Defaults to ./vledger-audit-package-<timestamp>.json
+        #[arg(short = 'o', long)]
+        audit_package: Option<PathBuf>,
+
+        /// VectorLedger domain for ingested journal entries.
+        #[arg(long, default_value = "banno")]
+        domain: String,
+    },
+
     // ── Phase 3 CLI ───────────────────────────────────────────────────────
     /// Create a point-in-time backup snapshot (tar archive + BLAKE3 manifest).
     Backup {
@@ -876,6 +917,9 @@ async fn main() -> Result<()> {
         Commands::Mcp { bind, server, ca_cert, username, password } => {
             cmd_mcp(&cli.data_dir, &bind, server.as_deref(), ca_cert.as_deref(), username.as_deref(), password.as_deref()).await
         }        // Phase 3
+        Commands::Ingest { source, token, user_id, audit_package, domain } => {
+            cmd_ingest(&cli.data_dir, &source, token.as_deref(), user_id.as_deref(), audit_package.as_deref(), &domain).await
+        }
         Commands::Backup { output } => cmd_backup(&cli.data_dir, output.as_deref()).await,
         Commands::Restore {
             from,
@@ -6600,5 +6644,108 @@ async fn cmd_mcp(
         vledger_mcp::McpServer::new(config, ledger, user_store)
             .run(shutdown)
             .await
+    }
+}
+
+// ── ingest ────────────────────────────────────────────────────────────────────
+
+async fn cmd_ingest(
+    data_dir: &std::path::PathBuf,
+    source: &str,
+    token: Option<&str>,
+    user_id: Option<&str>,
+    audit_package: Option<&std::path::Path>,
+    domain: &str,
+) -> Result<()> {
+    use vledger_banno_connector::{BannoConfig, BannoConnector};
+    use vledger_banking_core::CoreBankingConnector;
+    use vledger_ingest::IngestPipeline;
+
+    // Ensure data directory subdirectories exist
+    std::fs::create_dir_all(data_dir.join("wal"))
+        .context("Failed to create WAL directory")?;
+    std::fs::create_dir_all(data_dir.join("pages"))
+        .context("Failed to create pages directory")?;
+    std::fs::create_dir_all(data_dir.join("audit"))
+        .context("Failed to create audit directory")?;
+
+    // Audit package path — default to timestamped file in cwd
+    let audit_package_path = match audit_package {
+        Some(p) => p.to_path_buf(),
+        None => {
+            let ts = chrono::Utc::now().format("%Y%m%d-%H%M%S");
+            std::path::PathBuf::from(format!("vledger-audit-package-{ts}.json"))
+        }
+    };
+
+    match source.to_lowercase().as_str() {
+        "banno" => {
+            // Load Banno config from environment
+            let config = BannoConfig::from_env().map_err(|e| {
+                anyhow::anyhow!(
+                    "Failed to load Banno config.\n\
+                     Required env vars: BANNO_CLIENT_ID, BANNO_CLIENT_SECRET\n\
+                     Optional: BANNO_REDIRECT_URI, BANNO_BASE_URL, BANNO_REDIRECT_PORT\n\
+                     Error: {e}"
+                )
+            })?;
+
+            let mut connector = BannoConnector::new(config);
+
+            // Resolve token — CLI flag → env var → interactive OAuth flow
+            let resolved_token = token
+                .map(|t| t.to_string())
+                .or_else(|| std::env::var("BANNO_ACCESS_TOKEN").ok());
+            let resolved_user_id = user_id
+                .map(|u| u.to_string())
+                .or_else(|| std::env::var("BANNO_USER_ID").ok());
+
+            match (resolved_token, resolved_user_id) {
+                (Some(tok), Some(uid)) => {
+                    info!("Using pre-existing access token (BANNO_ACCESS_TOKEN / --token)");
+                    connector = connector.with_token(&tok, &uid);
+                }
+                _ => {
+                    info!("No token provided — starting interactive OAuth flow...");
+                    connector
+                        .authenticate()
+                        .await
+                        .context("Authentication failed")?;
+                    info!("Authentication successful");
+                }
+            }
+
+            // Run the ingestion pipeline
+            let pipeline = IngestPipeline::new(data_dir)
+                .with_audit_package(&audit_package_path)
+                .with_domain(domain);
+
+            let report = pipeline
+                .run(&connector)
+                .await
+                .context("Ingestion pipeline failed")?;
+
+            // Print and save report
+            report.print_summary();
+
+            let report_path = data_dir.join("last-ingest-report.json");
+            let report_json =
+                serde_json::to_string_pretty(&report).context("Failed to serialize report")?;
+            std::fs::write(&report_path, report_json).context("Failed to write report")?;
+            info!(path = %report_path.display(), "Report saved");
+
+            if !report.chain_verified {
+                anyhow::bail!(
+                    "Hash chain verification failed — data integrity compromised. \
+                     See logs for details. Do not run ingestion again until resolved."
+                );
+            }
+
+            Ok(())
+        }
+        other => anyhow::bail!(
+            "Unknown source connector: '{other}'\n\
+             Supported connectors: banno"
+        ),
     }
 }

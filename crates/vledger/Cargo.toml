@@ -61,6 +61,9 @@ rustls-pemfile  = { workspace = true }
 libc                = { workspace = true }
 vledger-license     = { workspace = true }
 vledger-mcp         = { path = "../vledger-mcp" }
+vledger-banking-core    = { path = "../vledger-banking-core" }
+vledger-banno-connector = { path = "../vledger-banno-connector" }
+vledger-ingest          = { path = "../vledger-ingest" }
 reqwest             = { workspace = true }
 tikv-jemallocator   = { version = "0.6", features = ["unprefixed_malloc_on_supported_platforms"] }
 
