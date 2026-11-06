@@ -2746,3 +2746,382 @@ Add these checks to your existing monitoring:
 - OAuth access tokens expire in 900 seconds (15 minutes). For scheduled runs, implement token refresh or re-authenticate before each run.
 - The data directory contains ingested transaction data. Apply the same access controls as the VectorLedger data directory — mode 0700, accessible only to the `vledger` service user.
 - Never commit the data directory, `last-ingest-report.json`, or audit package files to source control.
+
+---
+
+## 25. Banking Demo — Jack Henry Banno Garden
+
+Complete step-by-step demo script for showing VectorLedger to a bank using live Jack Henry data. Two paths are provided for each server step: **manual** (two terminal windows) and **systemd** (single binary, three unit files).
+
+---
+
+### Before the Meeting
+
+**1. Check your license includes AgenticAI:**
+
+```bash
+vledger license --data-dir ./demo-data
+```
+
+Confirm `agentic_ai` appears in the features list. If it doesn't, contact `pavon@vectorguardlabs.com` before the meeting.
+
+**2. Get a fresh Jack Henry token** (tokens expire in 15 minutes — do this right before you start):
+
+```bash
+python3 ~/vectorguard/jxchange/auth.py
+```
+
+Save the `access_token` and `user_id` from the SUCCESS output. You'll need them in Step 3.
+
+> If using systemd, `auth.py` writes the token automatically to `/opt/vledger/auth/token.env` — no manual copy needed.
+
+**3. Have two terminal windows open and ready** (manual path only).
+
+---
+
+### Step 1 — Initialize a Clean Data Directory
+
+```bash
+vledger init --data-dir ./demo-data --key-source file
+```
+
+> **systemd:** Replace `./demo-data` with `/opt/vledger/data`. Run as the `vledger` service user:
+> ```bash
+> sudo -u vledger vledger init --data-dir /opt/vledger/data --key-source file
+> ```
+
+Tell the bank: *"We're starting from zero. Nothing pre-loaded. Every record you're about to see comes directly from your Jack Henry environment in real time."*
+
+---
+
+### Step 2 — Authenticate to Jack Henry
+
+```bash
+python3 ~/vectorguard/jxchange/auth.py
+```
+
+The script opens an authorization URL. Open it in the browser, log in, complete 2FA. The terminal prints a SUCCESS block with your access token.
+
+> **systemd:** `auth.py` writes `BANNO_ACCESS_TOKEN` and `BANNO_USER_ID` to `/opt/vledger/auth/token.env` automatically. No manual token handling needed.
+
+Tell the bank: *"This is a live authenticated connection to the Jack Henry Banno environment. We're using OAuth 2.0 with PKCE — the same standard your mobile banking app uses."*
+
+---
+
+### Step 3 — Run the Ingestion Pipeline
+
+**Manual:**
+
+```bash
+vledger ingest \
+  --data-dir ./demo-data \
+  --token <access_token_from_step_2> \
+  --user-id 75b6830d-d6ab-4e89-93d6-a9d9ac77503c \
+  --audit-package ./demo-audit-package.json
+```
+
+**systemd:**
+
+```bash
+sudo systemctl start vledger-ingest
+sudo systemctl status vledger-ingest
+```
+
+The report prints as it runs:
+
+```
+╔══════════════════════════════════════════════════════════════╗
+║  VectorLedger Ingestion Report                               ║
+╠══════════════════════════════════════════════════════════════╣
+║  Source:      Jack Henry Banno Consumer API                   ║
+║  Accounts Created:   2                                        ║
+║  Transactions Posted: 2                                       ║
+║  Integrity: ✅ VERIFIED                                        ║
+║  Audit Package: ./demo-audit-package.json                     ║
+╚══════════════════════════════════════════════════════════════╝
+```
+
+Tell the bank: *"Every transaction Jack Henry returned was posted to VectorLedger as a double-entry journal entry. Each one carries an idempotency key — the same transaction can never post twice regardless of how many times this pipeline runs. The BLAKE3 hash chain was extended and verified on every write."*
+
+---
+
+### Step 4 — Query the Raw Data
+
+```bash
+vledger sql --data-dir ./demo-data --username admin \
+  --query "SELECT sequence, description, status, domain FROM ledger"
+```
+
+```bash
+vledger sql --data-dir ./demo-data --username admin \
+  --query "SELECT code, name, account_type, currency, balance FROM accounts"
+```
+
+> **systemd:** Replace `./demo-data` with `/opt/vledger/data` in all `vledger sql` commands.
+
+Tell the bank: *"The data is queryable. Standard SQL. Every record that came from Jack Henry is here, in a cryptographically linked ledger."*
+
+---
+
+### Step 5 — Verify the Hash Chain
+
+```bash
+vledger sql --data-dir ./demo-data --username admin \
+  --query "SELECT VERIFY_CHAIN()"
+```
+
+Output: `CHAIN_OK — 2 entries verified`
+
+Tell the bank: *"Every entry in this ledger has been verified. The BLAKE3 hash chain is intact from the first record to the last. Any modification to any historical record — by anyone, including a database administrator — would break this chain immediately."*
+
+---
+
+### Step 6 — Start the Ledger Server
+
+**Manual** — open Terminal 1:
+
+```bash
+vledger start \
+  --data-dir ./demo-data \
+  --bind 127.0.0.1:5433 \
+  --pgwire \
+  --wal-sync-mode group_commit
+```
+
+Wait for: `INFO VectorLedger listening addr=127.0.0.1:5433`
+
+**systemd:**
+
+```bash
+sudo systemctl start vledger
+sudo systemctl status vledger
+```
+
+---
+
+### Step 7 — Start the MCP Server
+
+**Manual** — open Terminal 2:
+
+```bash
+vledger mcp \
+  --bind 127.0.0.1:3000 \
+  --data-dir ./demo-data \
+  --server 127.0.0.1:5433 \
+  --username admin
+```
+
+**systemd:**
+
+```bash
+sudo systemctl start vledger-mcp
+sudo systemctl status vledger-mcp
+```
+
+**Confirm it's running (both paths):**
+
+```bash
+curl http://127.0.0.1:3000/health
+```
+
+Expected response:
+
+```json
+{
+  "ok": true,
+  "service": "vledger-mcp",
+  "version": "1.8.0",
+  "tools": 15
+}
+```
+
+Tell the bank: *"VectorLedger now exposes 15 tools over the Model Context Protocol — the same standard used by Claude, Kiro, and Cursor. An AI agent can now query, reason about, and audit this ledger data directly."*
+
+---
+
+### Step 8 — Connect the AI Agent
+
+Add VectorLedger to your AI client (Kiro, Claude Desktop, or Cursor):
+
+```json
+{
+  "mcpServers": {
+    "vledger": {
+      "url": "http://127.0.0.1:3000/sse"
+    }
+  }
+}
+```
+
+Once connected, open the AI chat window so the bank can see it.
+
+---
+
+### Step 9 — Let the AI Query the Data Live
+
+Ask these questions out loud, one at a time. Don't pre-script the answers — the point is that the AI is querying live cryptographically verified data in real time.
+
+**Start with the basics:**
+
+> *"What are the balances on all accounts?"*
+
+> *"Show me all transactions in the ledger"*
+
+**Move to verification:**
+
+> *"Verify the hash chain and tell me if the ledger is intact"*
+
+> *"What is the Merkle root over all entries?"*
+
+**Ask for reasoning:**
+
+> *"Explain why the checking account is at its current balance"*
+
+> *"Summarize the financial activity for this period"*
+
+**Ask for audit evidence:**
+
+> *"Generate an audit report for all activity"*
+
+> *"Are there any policy violations or anomalies in the transaction history?"*
+
+Tell the bank: *"The AI is not guessing or hallucinating. Every answer it gives is backed by a direct query to the cryptographic ledger. The chain integrity is verified as part of every response. This is audit-ready output, generated in seconds, from data that cannot be tampered with."*
+
+---
+
+### Step 10 — Demonstrate Tamper Detection
+
+Tell the bank: *"Now I'm going to do something that would be impossible to detect in a traditional database. I'm going to modify a historical record directly."*
+
+Run the self-test tamper simulation:
+
+```bash
+vledger self-test --data-dir ./demo-data
+```
+
+Or show it manually — open the SQLite database directly, change a description field on sequence 1, then run:
+
+```bash
+vledger sql --data-dir ./demo-data --username admin \
+  --query "SELECT VERIFY_CHAIN()"
+```
+
+Output:
+
+```
+CHAIN_BROKEN at sequence 1 — content_hash mismatch
+```
+
+Tell the bank: *"The moment that record was changed, the chain broke. Not at the end — at the exact point of modification. This is not a log you can clear. This is not an audit trail someone can edit. The mathematics of the hash chain make tampering immediately and permanently detectable."*
+
+Then ask the AI the same question:
+
+> *"Verify the hash chain and tell me if the ledger is intact"*
+
+The AI will report the broken chain through the MCP tools.
+
+---
+
+### Step 11 — Show the Audit Package
+
+```bash
+cat ./demo-audit-package.json
+```
+
+Point out the key fields:
+
+```json
+{
+  "merkle_root":    "cfc8a48b...",
+  "root_signature": "ed25519 signature hex...",
+  "chain_tip":      "560c40ec...",
+  "entry_count":    2,
+  "algorithm":      "BLAKE3 + Ed25519"
+}
+```
+
+Tell the bank: *"This file is a cryptographic commitment over the entire ledger. It was signed with an Ed25519 key. Your external auditor can verify this file independently — without touching your database, without credentials, without running any VectorLedger software. The math verifies itself."*
+
+---
+
+### Step 12 — Generate the Compliance Report
+
+```bash
+vledger compliance-report \
+  --data-dir ./demo-data \
+  --standard soc2 \
+  --format markdown \
+  --output ./soc2-report.md
+
+cat ./soc2-report.md
+```
+
+Tell the bank: *"This is machine-generated SOC 2 Type II evidence. Not documentation someone wrote. Evidence computed from the actual system state — encryption at rest confirmed, hash chain integrity confirmed, audit log chain confirmed, replication status confirmed. This is what your next audit looks like."*
+
+---
+
+### Step 13 — Prove Idempotency
+
+Get a fresh token and run the pipeline a second time.
+
+**Manual:**
+
+```bash
+python3 ~/vectorguard/jxchange/auth.py
+
+vledger ingest \
+  --data-dir ./demo-data \
+  --token <fresh_token> \
+  --user-id 75b6830d-d6ab-4e89-93d6-a9d9ac77503c \
+  --audit-package ./demo-audit-package-2.json
+```
+
+**systemd:**
+
+```bash
+python3 /opt/vledger/bin/auth.py
+
+sudo systemctl start vledger-ingest
+sudo systemctl status vledger-ingest
+```
+
+Show the report:
+
+```
+║  Transactions Posted:  0   ║
+║  Transactions Skipped: 2   ║
+║  Integrity: ✅ VERIFIED     ║
+```
+
+Tell the bank: *"The same data from Jack Henry came in again. Nothing was double-posted. The Merkle root is identical to the first run. You can run this pipeline on a schedule every hour and the ledger stays consistent — no manual deduplication, no reconciliation job, no cleanup process needed."*
+
+---
+
+### Closing Statement
+
+*"What you just saw was Jack Henry transaction data — pulled live from an authenticated banking environment — ingested into a cryptographically verifiable ledger, queried by an AI agent, verified by a BLAKE3 hash chain, and committed to an Ed25519-signed Merkle audit package. Every piece of that is running on a single binary with no external dependencies. It runs on any Linux server you already have. It connects to your existing Jack Henry infrastructure. And it makes every transaction in your system tamper-detectable, audit-ready, and AI-queryable — from day one."*
+
+---
+
+### systemd Quick Reference
+
+```bash
+# After running auth.py — start everything
+sudo systemctl start vledger-ingest   # ingest first (Type=oneshot)
+sudo systemctl start vledger          # ledger server
+sudo systemctl start vledger-mcp      # MCP / AI server
+
+# Check all three
+sudo systemctl status vledger vledger-mcp vledger-ingest
+
+# Follow logs live during the demo
+sudo journalctl -u vledger -f
+sudo journalctl -u vledger-mcp -f
+sudo journalctl -u vledger-ingest -f
+
+# Reload after editing unit files
+sudo systemctl daemon-reload
+
+# Enable on boot (ledger + MCP only — ingest is on-demand)
+sudo systemctl enable vledger vledger-mcp
+```
