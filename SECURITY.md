@@ -96,7 +96,7 @@ We use [CVSS v3.1](https://www.first.org/cvss/v3.1/specification-document) for s
 - The four-eyes dual-control approval workflow
 - The compliance engine and audit log
 - The secrets manager backends
-- The banking connector framework (`vledger-banking-core`, `vledger-banno-connector`, `vledger-ingest`)
+- The banking connector framework (`vledger-banking-core`, `vledger-banno-connector`, `vledger-ingest` library, and the `vledger ingest` subcommand)
 
 **Out of scope:**
 - Third-party libraries (report to their maintainers and the [Rust Advisory Database](https://rustsec.org))
@@ -978,7 +978,7 @@ Found by `fuzz_transaction`.
 
 ### Credential Handling
 
-The banking connector framework (`vledger-banking-core`, `vledger-banno-connector`, `vledger-ingest`) handles OAuth credentials for third-party banking APIs. The following controls are in place and must be maintained by operators:
+The banking connector framework (`vledger-banking-core`, `vledger-banno-connector`, `vledger-ingest` library) handles OAuth credentials for third-party banking APIs. The `vledger ingest` subcommand is the entry point. The following controls are in place and must be maintained by operators:
 
 - `BANNO_CLIENT_SECRET` and any OAuth access tokens must be stored in a secrets manager (HashiCorp Vault, AWS Secrets Manager, or equivalent) and loaded as environment variables at runtime — never committed to source control, configuration files, or logs.
 - Access tokens expire in 900 seconds (15 minutes). The connector does not persist tokens to disk. Each ingestion run must provide a fresh token via `--token` or perform the interactive OAuth flow.
@@ -988,7 +988,7 @@ The banking connector framework (`vledger-banking-core`, `vledger-banno-connecto
 ### Data Isolation
 
 - Ingested transaction data is stored inside the VectorLedger data directory under the same AES-256-GCM encryption and BLAKE3 hash chain protections as all other ledger data.
-- The data directory must have mode 0700 and be accessible only to the service user running `vledger-ingest`.
+- The data directory must have mode 0700 and be accessible only to the service user running `vledger ingest`.
 - `last-ingest-report.json` and generated audit packages contain account identifiers and transaction counts. Treat them as sensitive — do not commit to source control or expose publicly.
 
 ### Idempotency as a Security Control

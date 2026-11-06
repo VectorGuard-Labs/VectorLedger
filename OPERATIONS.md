@@ -177,7 +177,7 @@ cargo build --release
 >
 > **Three new crates added:** `vledger-banking-core`, `vledger-banno-connector`, and `vledger-ingest` are new workspace members. They do not affect the core `vledger` binary or any existing data directories. Build from source with `cargo build --release` as usual — the new crates compile automatically.
 >
-> **`vledger-ingest` binary:** The ingestion pipeline ships as a standalone binary `vledger-ingest`. It is not part of the main `vledger` binary. Deploy it separately on any machine that needs to pull data from banking connectors.
+> **`vledger ingest` subcommand:** The ingestion pipeline is now a first-class subcommand of the main `vledger` binary — `vledger ingest` — alongside `vledger start` and `vledger mcp`. There is no separate `vledger-ingest` binary to deploy. The `vledger-ingest` crate is a library that powers this subcommand.
 >
 > **Repository URL changed:** If you have scripts that reference `https://github.com/pavondunbar/VectorLedger`, update them to `https://github.com/VectorGuard-Labs/VectorLedger`. The old URL redirects but will not redirect indefinitely.
 >
@@ -642,6 +642,61 @@ vledger mcp \
 | `--ca-cert <PATH>` | — | CA cert for non-loopback TLS |
 | `-u, --username <USER>` | — | Falls back to `VLEDGER_CLI_USER` |
 | `-p, --password <PASS>` | — | Falls back to `VLEDGER_CLI_PASSWORD` |
+
+---
+
+### `vledger ingest`
+
+Ingest banking data from a connector into VectorLedger. Posts transactions as double-entry journal entries with idempotency keys, verifies the BLAKE3 chain, and generates an Ed25519-signed Merkle audit package.
+
+Safe to run on a schedule — duplicate transactions are detected via idempotency keys and skipped.
+
+```bash
+# Scripted / systemd — token from environment variables
+export BANNO_ACCESS_TOKEN=<token>
+export BANNO_USER_ID=<user_id>
+vledger ingest \
+  --data-dir /var/lib/vledger/data \
+  --source banno \
+  --audit-package /var/lib/vledger/audit/$(date +%Y%m%d).json \
+  --domain banno-production
+
+# Interactive OAuth (opens browser)
+vledger ingest \
+  --data-dir ./vledger-data \
+  --source banno \
+  --audit-package ./audit-package.json
+
+# Explicit token flags
+vledger ingest \
+  --data-dir ./vledger-data \
+  --token <access_token> \
+  --user-id <user_id> \
+  --audit-package ./audit-package.json
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `-d, --data-dir <PATH>` | `./vledger-data` | VectorLedger data directory |
+| `-s, --source <NAME>` | `banno` | Connector to use (`banno` supported) |
+| `--token <TOKEN>` | — | Pre-existing OAuth token. Falls back to `BANNO_ACCESS_TOKEN` env var |
+| `--user-id <ID>` | — | User ID for the token. Falls back to `BANNO_USER_ID` env var |
+| `-o, --audit-package <PATH>` | auto-timestamped | Path to write the Ed25519-signed Merkle audit package |
+| `--domain <DOMAIN>` | `banno` | VectorLedger domain for ingested journal entries |
+| `-l, --log-level <LEVEL>` | `info` | Log level |
+
+Token resolution order: `--token` flag → `BANNO_ACCESS_TOKEN` env var → interactive OAuth browser flow.
+
+Required environment variables for Banno connector:
+
+| Variable | Required | Description |
+|---|---|---|
+| `BANNO_CLIENT_ID` | Yes | OAuth client ID from Jack Henry developer dashboard |
+| `BANNO_CLIENT_SECRET` | Yes | OAuth client secret — store in secrets manager |
+| `BANNO_ACCESS_TOKEN` | For scripted use | Pre-obtained OAuth access token |
+| `BANNO_USER_ID` | For scripted use | User ID extracted from the OAuth identity token |
+| `BANNO_REDIRECT_URI` | No | OAuth redirect URI (default: `http://localhost:8080/dynamic`) |
+| `BANNO_BASE_URL` | No | Banno environment base URL (default: Garden test institution) |
 
 ---
 
@@ -2408,7 +2463,7 @@ Measure your actual RTO by timing a restore drill on a representative dataset. D
 
 ## 24. Banking Connector Integration
 
-VectorLedger ships a vendor-agnostic banking connector framework comprising three crates. This section covers operating the `vledger-ingest` pipeline in production.
+VectorLedger ships a vendor-agnostic banking connector framework comprising three crates. This section covers operating the `vledger ingest` subcommand in production.
 
 ### Architecture
 
@@ -2419,7 +2474,7 @@ Banking API (Jack Henry Banno, Plaid, Open Banking, etc.)
 vledger-banno-connector  (or any CoreBankingConnector implementation)
         │
         ▼
-vledger-ingest pipeline
+vledger ingest pipeline
         │  1. ensure_contra_account()   — creates EXTERNAL_TRANSFER if absent
         │  2. ensure_account()          — creates VectorLedger accounts (idempotent)
         │  3. fetch_transactions()      — pulls from banking API
@@ -2451,7 +2506,7 @@ export BANNO_BASE_URL=https://digital.garden-fi.com       # Garden / override fo
 
 **Interactive mode (OAuth browser flow):**
 ```bash
-vledger-ingest \
+vledger ingest \
   --data-dir /var/lib/vledger/data \
   --source banno \
   --audit-package /var/lib/vledger/audit/$(date +%Y%m%d)-audit.json \
@@ -2460,10 +2515,10 @@ vledger-ingest \
 
 **Scripted / CI mode (pre-existing token):**
 ```bash
-vledger-ingest \
+vledger ingest \
   --data-dir /var/lib/vledger/data \
-  --token <access_token> \
-  --user-id <user_id_from_token> \
+  --token $BANNO_ACCESS_TOKEN \
+  --user-id $BANNO_USER_ID \
   --audit-package /var/lib/vledger/audit/$(date +%Y%m%d)-audit.json \
   --domain banno-production
 ```
@@ -2474,10 +2529,10 @@ vledger-ingest \
 |---|---|---|
 | `-d, --data-dir <PATH>` | `./vledger-data` | VectorLedger data directory |
 | `-s, --source <NAME>` | `banno` | Connector to use (`banno` is the only built-in connector) |
-| `--token <TOKEN>` | — | Pre-existing OAuth access token (skips interactive flow) |
-| `--user-id <ID>` | — | User ID associated with the token (required with `--token`) |
+| `--token <TOKEN>` | — | Pre-existing OAuth access token (skips interactive flow). Falls back to `BANNO_ACCESS_TOKEN` |
+| `--user-id <ID>` | — | User ID associated with the token. Falls back to `BANNO_USER_ID` |
 | `-o, --audit-package <PATH>` | auto-timestamped | Path to write the Ed25519-signed Merkle audit package |
-| `--domain <DOMAIN>` | `banno-garden` | VectorLedger domain for ingested journal entries |
+| `--domain <DOMAIN>` | `banno` | VectorLedger domain for ingested journal entries |
 | `-l, --log-level <LEVEL>` | `info` | Log level (trace, debug, info, warn, error) |
 
 ### Idempotency
@@ -2517,6 +2572,111 @@ Every run writes a JSON report to `<data-dir>/last-ingest-report.json`:
   "audit_package_path": "./audit-package.json"
 }
 ```
+
+### systemd Deployment
+
+All three services use the single `vledger` binary. The token written by `auth.py` is passed via `EnvironmentFile`.
+
+**`/etc/systemd/system/vledger.service`:**
+```ini
+[Unit]
+Description=VectorLedger cryptographic ledger server
+After=network.target
+
+[Service]
+Type=simple
+User=vledger
+Group=vledger
+EnvironmentFile=/opt/vledger/auth/token.env
+ExecStart=/opt/vledger/bin/vledger start \
+  --data-dir /opt/vledger/data \
+  --bind 127.0.0.1:5433 \
+  --pgwire \
+  --wal-sync-mode group_commit
+Restart=on-failure
+RestartSec=5
+StandardOutput=append:/opt/vledger/logs/vledger.log
+StandardError=append:/opt/vledger/logs/vledger.log
+
+[Install]
+WantedBy=multi-user.target
+```
+
+**`/etc/systemd/system/vledger-mcp.service`:**
+```ini
+[Unit]
+Description=VectorLedger MCP server (AI agent interface)
+After=vledger.service
+Requires=vledger.service
+
+[Service]
+Type=simple
+User=vledger
+Group=vledger
+EnvironmentFile=/opt/vledger/auth/token.env
+ExecStart=/opt/vledger/bin/vledger mcp \
+  --bind 127.0.0.1:3000 \
+  --server 127.0.0.1:5433 \
+  --data-dir /opt/vledger/data \
+  --username admin
+Restart=on-failure
+RestartSec=5
+StandardOutput=append:/opt/vledger/logs/vledger-mcp.log
+StandardError=append:/opt/vledger/logs/vledger-mcp.log
+
+[Install]
+WantedBy=multi-user.target
+```
+
+**`/etc/systemd/system/vledger-ingest.service`:**
+```ini
+[Unit]
+Description=VectorLedger Jack Henry ingestion pipeline
+After=vledger.service
+Requires=vledger.service
+
+[Service]
+Type=oneshot
+User=vledger
+Group=vledger
+EnvironmentFile=/opt/vledger/auth/token.env
+ExecStart=/opt/vledger/bin/vledger ingest \
+  --data-dir /opt/vledger/data \
+  --source banno \
+  --token $BANNO_ACCESS_TOKEN \
+  --user-id $BANNO_USER_ID \
+  --domain banno-production
+StandardOutput=append:/opt/vledger/logs/vledger-ingest.log
+StandardError=append:/opt/vledger/logs/vledger-ingest.log
+
+[Install]
+WantedBy=multi-user.target
+```
+
+**Enable and load:**
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable vledger vledger-mcp
+```
+
+**Demo / production flow:**
+```bash
+# 1. Authenticate (writes BANNO_ACCESS_TOKEN and BANNO_USER_ID to token.env)
+python3 /opt/vledger/bin/auth.py
+
+# 2. Run ingestion
+sudo systemctl start vledger-ingest
+sudo systemctl status vledger-ingest
+
+# 3. Start ledger + MCP servers
+sudo systemctl start vledger vledger-mcp
+sudo systemctl status vledger vledger-mcp
+
+# 4. Verify MCP server is up
+curl http://127.0.0.1:3000/health
+```
+
+> **Token expiry:** Banno OAuth tokens expire in 900 seconds (15 minutes). Re-run `auth.py` before each demo or scheduled ingestion run and restart the affected services to pick up the new token from `token.env`.
 
 ### Querying Ingested Data
 

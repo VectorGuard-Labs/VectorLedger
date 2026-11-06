@@ -148,7 +148,7 @@ VectorLedger makes tampering **cryptographically detectable**:
 | `vledger-kani` | 21 formal verification (Kani) proof harnesses |
 | `vledger-banking-core` | Vendor-agnostic banking connector trait and normalized types |
 | `vledger-banno-connector` | Jack Henry Banno Consumer API connector (OAuth 2.0 + PKCE) |
-| `vledger-ingest` | Ingestion pipeline: banking connector → VectorLedger journal entries |
+| `vledger-ingest` | Ingestion pipeline library — powers `vledger ingest` subcommand |
 
 ### Key Invariants
 
@@ -661,7 +661,7 @@ Audit Package            (Ed25519-signed Merkle commitment)
 |---|---|
 | `vledger-banking-core` | `CoreBankingConnector` trait, `NormalizedAccount`, `NormalizedTransaction`, `IngestRecord`, `MinorUnits` amount parser |
 | `vledger-banno-connector` | Jack Henry Banno Consumer API: OAuth 2.0 Authorization Code + PKCE, account and transaction fetch, field mapping |
-| `vledger-ingest` | Full ingestion pipeline: account provisioning, double-entry posting with idempotency keys, chain verification, audit package generation |
+| `vledger-ingest` | Ingestion pipeline library — account provisioning, double-entry posting with idempotency keys, chain verification, audit package generation. Powers the `vledger ingest` subcommand |
 
 ### Vendor-Agnostic by Design
 
@@ -681,14 +681,14 @@ vledger init --data-dir ./vledger-data --key-source file
 python3 ~/vectorguard/jxchange/auth.py
 
 # Run the ingestion pipeline with a pre-existing token
-vledger-ingest \
+vledger ingest \
   --data-dir ./vledger-data \
   --token <access_token> \
   --user-id <user_id_from_token> \
   --audit-package ./audit-package.json
 
 # Or use interactive OAuth (opens browser)
-vledger-ingest \
+vledger ingest \
   --data-dir ./vledger-data \
   --source banno \
   --audit-package ./audit-package.json
@@ -820,7 +820,20 @@ vledger-bench \
 - **Banking connector framework — three new crates:** A vendor-agnostic banking connector framework ships with this release, enabling external banking data to flow into VectorLedger's cryptographic ledger engine.
   - `vledger-banking-core` — `CoreBankingConnector` trait, `NormalizedAccount`, `NormalizedTransaction`, `IngestRecord`, currency-aware `MinorUnits` decimal parser. 15 unit tests including correctness checks on amount parsing edge cases.
   - `vledger-banno-connector` — Jack Henry Banno Consumer API connector implementing `CoreBankingConnector`. Full OAuth 2.0 Authorization Code + PKCE flow, account and transaction fetch, field mapping from Jack Henry's JSON to normalized types. 21 unit tests including PKCE vector verification against Jack Henry's own test values.
-  - `vledger-ingest` — CLI binary and library for the full ingestion pipeline: account provisioning, `EXTERNAL_TRANSFER` contra-account management, double-entry posting with idempotency keys (safe to run on a schedule — no double-posting), BLAKE3 chain verification, Ed25519-signed Merkle audit package generation. 4 unit tests covering account setup idempotency and type mapping.
+  - `vledger-ingest` — Ingestion pipeline library powering the `vledger ingest` subcommand: account provisioning, `EXTERNAL_TRANSFER` contra-account management, double-entry posting with idempotency keys (safe to run on a schedule — no double-posting), BLAKE3 chain verification, Ed25519-signed Merkle audit package generation. 4 unit tests covering account setup idempotency and type mapping.
+
+- **`vledger ingest` — first-class CLI subcommand:** The ingestion pipeline is now a subcommand of the main `vledger` binary alongside `vledger start` and `vledger mcp`. No separate binary needed. Token resolution order: `--token` flag → `BANNO_ACCESS_TOKEN` env var → interactive OAuth browser flow. This enables clean systemd deployments with a single binary and three unit files (`vledger.service`, `vledger-mcp.service`, `vledger-ingest.service`).
+
+  ```bash
+  # Scripted / systemd (token from env var)
+  vledger ingest --data-dir ./vledger-data --source banno
+
+  # Explicit token
+  vledger ingest --data-dir ./vledger-data --token <tok> --user-id <uid>
+
+  # Interactive OAuth (opens browser)
+  vledger ingest --data-dir ./vledger-data --source banno --audit-package ./audit.json
+  ```
 
 - **Ingestion idempotency counter fix:** The pipeline's `Skipped` counter now correctly detects when `post_entry()` returns an existing sequence number due to an idempotency key match, using `entry_count()` before/after comparison. Previously re-runs reported `Posted: N / Skipped: 0` even though no new entries were written.
 
