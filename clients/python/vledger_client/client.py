@@ -108,6 +108,10 @@ class VledgerConnectionError(VledgerError):
     """Raised when the client cannot connect to the server."""
 
 
+class VledgerAuthError(VledgerError):
+    """Raised when the server rejects the supplied credentials."""
+
+
 # ---------------------------------------------------------------------------
 # Client
 # ---------------------------------------------------------------------------
@@ -129,6 +133,11 @@ class VledgerClient:
     tls_ca_cert : str | None
         Path to a PEM CA certificate to verify the server certificate.
         ``None`` disables certificate verification (development only).
+    username, password : str | None
+        VectorLedger account credentials. Release builds of the server require
+        them: the first frame on every connection is an ``auth`` frame, and
+        every later request carries the returned session token. Leave both
+        ``None`` only when talking to a ``dev-no-auth`` server build.
     timeout : float
         Socket timeout in seconds (default 30).
     """
@@ -141,13 +150,20 @@ class VledgerClient:
         with_proofs: bool = False,
         tls: bool = True,
         tls_ca_cert: Optional[str] = None,
+        username: Optional[str] = None,
+        password: Optional[str] = None,
         timeout: float = 30.0,
     ):
+        if (username is None) != (password is None):
+            raise ValueError("username and password must be given together")
         self._host = host
         self._port = port
         self._with_proofs = with_proofs
         self._tls = tls
         self._tls_ca_cert = tls_ca_cert
+        self._username = username
+        self._password = password
+        self._token: Optional[str] = None
         self._timeout = timeout
         self._lock = threading.Lock()
         self._sock: Optional[ssl.SSLSocket | socket.socket] = None
@@ -158,7 +174,11 @@ class VledgerClient:
     # ------------------------------------------------------------------
 
     def __enter__(self) -> "VledgerClient":
-        self.connect()
+        # ``connect`` is a classmethod that builds a *new* client, so calling it
+        # here opened a stray connection to the default host/port. Connect this
+        # instance instead, and only if it is not already connected.
+        if self._sock is None:
+            self._connect()
         return self
 
     def __exit__(self, *_: Any) -> None:
@@ -216,6 +236,35 @@ class VledgerClient:
         else:
             self._sock = raw
         self._buf = b""
+        self._token = None
+        if self._username is not None:
+            self._authenticate()
+
+    def _authenticate(self) -> None:
+        """Send the ``auth`` frame and store the session token."""
+        assert self._sock is not None
+        frame = json.dumps(
+            {"auth": {"username": self._username, "password": self._password}}
+        ) + "\n"
+        try:
+            self._sock.sendall(frame.encode("utf-8"))
+            resp = json.loads(self._read_line())
+        except (OSError, ssl.SSLError, VledgerConnectionError) as exc:
+            self._drop_socket()
+            raise VledgerConnectionError(f"Connection lost during login: {exc}") from exc
+        if not resp.get("ok", False) or not resp.get("token"):
+            # The server closes the connection after a failed login.
+            self._drop_socket()
+            raise VledgerAuthError(resp.get("error", "authentication failed"))
+        self._token = resp["token"]
+
+    def _drop_socket(self) -> None:
+        if self._sock is not None:
+            try:
+                self._sock.close()
+            except OSError:
+                pass
+        self._sock = None
 
     def close(self) -> None:
         """Close the connection."""
@@ -291,7 +340,7 @@ class VledgerClient:
         """
         result = self.query("SELECT VERIFY_CHAIN()")
         if not result.rows:
-            raise VledgerError("No response from VERIFY_CHAIN()")
+            raise VledgerError(f"No response from VERIFY_CHAIN(): {result.message}")
         status = result.rows[0].get("status", "")
         if status != "OK":
             raise VledgerError(f"Chain integrity failure: {status}")
@@ -302,7 +351,10 @@ class VledgerClient:
     # ------------------------------------------------------------------
 
     def _send(self, sql: str, *, with_proof: bool) -> QueryResult:
-        request = json.dumps({"sql": sql, "with_proof": with_proof}) + "\n"
+        frame: dict[str, Any] = {"sql": sql, "with_proof": with_proof}
+        if self._token:
+            frame["token"] = self._token
+        request = json.dumps(frame) + "\n"
         with self._lock:
             if self._sock is None:
                 raise VledgerConnectionError("Not connected — call connect() first")

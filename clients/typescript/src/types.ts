@@ -9,8 +9,12 @@
 
 /** JSON request sent to the VectorLedger server. */
 export interface VledgerRequest {
-  sql:        string;
-  with_proof: boolean;
+  sql?:       string;
+  with_proof?: boolean;
+  /** First frame on a connection. */
+  auth?:      { username: string; password: string };
+  /** Session token returned by the auth response; sent with every later request. */
+  token?:     string;
 }
 
 // ── Response ─────────────────────────────────────────────────────────────────
@@ -24,6 +28,8 @@ export interface VledgerRawResponse {
   rows_affected?: number;
   message?:      string;
   proof?:        RawProof;
+  token?:        string;
+  role?:         string;
 }
 
 export interface RawProof {
@@ -98,5 +104,13 @@ export class VledgerConnectionError extends VledgerError {
   constructor(message: string) {
     super(message);
     this.name = "VledgerConnectionError";
+  }
+}
+
+/** Thrown when the server rejects the supplied credentials. */
+export class VledgerAuthError extends VledgerError {
+  constructor(message: string) {
+    super(message);
+    this.name = "VledgerAuthError";
   }
 }

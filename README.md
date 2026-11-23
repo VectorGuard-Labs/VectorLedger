@@ -427,9 +427,11 @@ Corrections follow the append-only model: post a **reversal entry** (flip debit/
 
 All three SDKs speak the **native newline-delimited JSON wire protocol** over TLS 1.3 on port 5433.
 
-**Wire protocol:**
+**Wire protocol:** the first frame on a connection is a login. Every later request carries the returned session token.
 ```
-Request:  {"sql": "SELECT ...", "with_proof": false}\n
+Login:    {"auth": {"username": "analyst1", "password": "..."}}\n
+          -> {"ok": true, "token": "<hex>", "role": "auditor"}\n
+Request:  {"sql": "SELECT ...", "with_proof": false, "token": "<hex>"}\n
 Response: {"ok": true, "columns": [...], "rows": [[...]], "rows_affected": N,
            "proof": {"root_hex": "...", "leaf_count": N, "verified": true}}\n
 ```
@@ -441,7 +443,9 @@ All three clients validate account identifiers via the same character allowlist 
 ```python
 from vledger_client import VledgerClient
 
-with VledgerClient.connect("127.0.0.1", 5433) as client:
+# Use host "localhost" with tls_ca_cert=<data-dir>/catalog/tls_cert.pem to verify the
+# generated certificate; loopback without a CA cert skips verification with a warning.
+with VledgerClient.connect("127.0.0.1", 5433, username="analyst1", password="...") as client:
     result = client.query("SELECT * FROM ledger LIMIT 10")
     for row in result.rows:
         print(row.get("description"), row.get("amount"))
@@ -450,7 +454,8 @@ with VledgerClient.connect("127.0.0.1", 5433) as client:
     ok = client.verify_chain()        # returns bool
 
 # With Merkle proofs
-with VledgerClient.connect("127.0.0.1", 5433, with_proofs=True) as client:
+with VledgerClient.connect("127.0.0.1", 5433, with_proofs=True,
+                           username="analyst1", password="...") as client:
     result = client.query("SELECT * FROM ledger WHERE sequence = 1")
     if result.proof:
         print(f"Merkle root: {result.proof.root_hex}")
@@ -468,6 +473,8 @@ const client = await VledgerClient.connect({
   host: '127.0.0.1',
   port: 5433,
   tls: true,
+  username: 'analyst1',
+  password: process.env.VLEDGER_PASSWORD!,
 });
 
 const result = await client.query('SELECT * FROM ledger LIMIT 10');
@@ -496,9 +503,12 @@ Install: `npm install` in `clients/typescript/`
 import "github.com/VectorGuard-Labs/VectorLedger/clients/go/vledger"
 
 client, err := vledger.Connect(vledger.Options{
-    Host:   "127.0.0.1",
-    Port:   5433,
-    UseTLS: true,
+    Host:     "127.0.0.1",
+    Port:     5433,
+    Username: "analyst1",
+    Password: os.Getenv("VLEDGER_PASSWORD"),
+    // UseTLS defaults to true. TLSCACert pins the server CA (use Host "localhost"
+    // with the generated certificate); InsecureSkipVerify is for local testing only.
 })
 if err != nil { log.Fatal(err) }
 defer client.Close()
@@ -808,6 +818,10 @@ vledger-bench \
 ---
 
 ## Changelog
+
+### Unreleased
+
+- **Fixed — the Python, Go and TypeScript clients could not log in:** release builds of the server require an `auth` frame first and a session token on every request, but none of the three SDKs sent either, so every query was refused. All three now accept `username`/`password` (Go: `Options.Username`/`Password`), authenticate on connect and on reconnect, and raise a distinct auth error (`VledgerAuthError`). Also fixed: Python `with VledgerClient.connect(...)` opened an extra TLS connection to the default host and port; the Go `TLSCACert` option was documented but never loaded; Go `Balance` failed on the string cells the server returns; `verify_chain` now includes the server's integrity-failure message. Go README example no longer passes a bool to the `*bool` `UseTLS` field.
 
 ### v1.8.0
 

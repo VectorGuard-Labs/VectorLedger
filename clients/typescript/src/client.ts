@@ -30,6 +30,7 @@ import {
   MerkleProof,
   QueryResult,
   Row,
+  VledgerAuthError,
   VledgerConnectionError,
   VledgerError,
   VledgerRawResponse,
@@ -56,6 +57,14 @@ export interface VledgerClientOptions {
   rejectUnauthorized?: boolean;
   /** Socket timeout in milliseconds (default: 30_000). */
   timeout?:     number;
+  /**
+   * VectorLedger account credentials. Release builds of the server require
+   * them: the first frame on every connection is an auth frame and every later
+   * request carries the returned session token. Leave both unset only for a
+   * dev-no-auth server build.
+   */
+  username?:    string;
+  password?:    string;
 }
 
 // ── VledgerClient ────────────────────────────────────────────────────────────────
@@ -63,6 +72,7 @@ export interface VledgerClientOptions {
 export class VledgerClient {
   private socket:     tls.TLSSocket | net.Socket | null = null;
   private buf:        Buffer = Buffer.alloc(0);
+  private token:      string = "";
   private readonly pending: Array<{
     resolve: (line: string) => void;
     reject:  (err: Error)   => void;
@@ -87,7 +97,15 @@ export class VledgerClient {
       // to production.
       rejectUnauthorized: opts.rejectUnauthorized  ?? true,
       timeout:            opts.timeout             ?? 30_000,
+      username:           opts.username            ?? "",
+      password:           opts.password            ?? "",
     };
+
+    if ((opts.username === undefined) !== (opts.password === undefined)) {
+      return Promise.reject(
+        new VledgerAuthError("username and password must be provided together"),
+      );
+    }
 
     // Safety: if the caller leaves rejectUnauthorized at the default (true)
     // but supplies no CA cert and is connecting to loopback, we relax it to
@@ -132,7 +150,14 @@ export class VledgerClient {
       const onConnect = (): void => {
         this.socket!.removeListener("error", onError);
         this._setupDataHandler();
-        resolve(this);
+        if (!this.opts.username) {
+          resolve(this);
+          return;
+        }
+        this._authenticate().then(
+          () => resolve(this),
+          (err) => { this.close(); reject(err); },
+        );
       };
 
       if (this.opts.tls) {
@@ -193,10 +218,42 @@ export class VledgerClient {
     if (this.buf.indexOf(0x0a) !== -1) this._drainLines();
   }
 
+  /** Send the auth frame and store the session token. */
+  private _authenticate(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      this.pending.push({
+        resolve: (line) => {
+          try {
+            const raw = JSON.parse(line) as VledgerRawResponse;
+            if (!raw.ok || !raw.token) {
+              reject(new VledgerAuthError(raw.error ?? "authentication failed"));
+            } else {
+              this.token = raw.token;
+              resolve();
+            }
+          } catch (e) {
+            reject(new VledgerError(`Failed to parse server response: ${e}`));
+          }
+        },
+        reject,
+      });
+      const req: VledgerRequest = {
+        auth: { username: this.opts.username, password: this.opts.password },
+      };
+      this.socket!.write(JSON.stringify(req) + "\n", "utf8", (err) => {
+        if (err) {
+          this.pending.pop();
+          reject(new VledgerConnectionError(`Send failed: ${err.message}`));
+        }
+      });
+    });
+  }
+
   /** Close the connection. */
   close(): void {
     this.socket?.destroy();
     this.socket = null;
+    this.token = "";
   }
 
   // ── Public API ─────────────────────────────────────────────────────────────
@@ -249,7 +306,7 @@ export class VledgerClient {
    */
   async verifyChain(): Promise<boolean> {
     const result = await this.query("SELECT VERIFY_CHAIN()");
-    if (!result.rows.length) throw new VledgerError("No response from VERIFY_CHAIN()");
+    if (!result.rows.length) throw new VledgerError(`No response from VERIFY_CHAIN(): ${result.message}`);
     const status = result.rows[0].getOrDefault("status", "") as string;
     if (status !== "OK") throw new VledgerError(`Chain integrity failure: ${status}`);
     return true;
@@ -282,6 +339,7 @@ export class VledgerClient {
       });
 
       const req: VledgerRequest = { sql, with_proof: withProof };
+      if (this.token) req.token = this.token;
       const wire = JSON.stringify(req) + "\n";
       this.socket.write(wire, "utf8", (err) => {
         if (err) {

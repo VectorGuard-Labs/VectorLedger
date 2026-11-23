@@ -10,7 +10,7 @@ import threading
 import unittest
 from unittest.mock import MagicMock
 
-from vledger_client import VledgerClient, VledgerError, QueryResult, Row
+from vledger_client import VledgerClient, VledgerError, VledgerAuthError, QueryResult, Row
 
 
 # ---------------------------------------------------------------------------
@@ -141,6 +141,90 @@ class TestVledgerClient(unittest.TestCase):
         client = _mock_client(data)
         with self.assertRaises(VledgerError):
             client.verify_chain()
+
+
+class _FakeServer:
+    """Minimal plaintext server that enforces the real auth handshake."""
+
+    def __init__(self, user="alice", password="s3cr3t", token="tok123"):
+        self.user, self.password, self.token = user, password, token
+        self.frames = []
+        self._srv = socket.socket()
+        self._srv.bind(("127.0.0.1", 0))
+        self._srv.listen(5)
+        self.port = self._srv.getsockname()[1]
+        threading.Thread(target=self._serve, daemon=True).start()
+
+    def _serve(self):
+        while True:
+            try:
+                conn, _ = self._srv.accept()
+            except OSError:
+                return
+            threading.Thread(target=self._handle, args=(conn,), daemon=True).start()
+
+    def _handle(self, conn):
+        f = conn.makefile("rwb")
+        authed = False
+        for line in f:
+            req = json.loads(line)
+            self.frames.append(req)
+            if not authed:
+                a = req.get("auth")
+                if a and a.get("username") == self.user and a.get("password") == self.password:
+                    authed = True
+                    resp = {"ok": True, "token": self.token, "role": "auditor", "message": "authenticated"}
+                    if req.get("sql") is None:
+                        f.write((json.dumps(resp) + "\n").encode()); f.flush(); continue
+                else:
+                    f.write(b'{"ok":false,"error":"Authentication error: invalid credentials"}\n'); f.flush()
+                    break  # real server closes after a failed login
+            if req.get("token") != self.token:
+                f.write(b'{"ok":false,"error":"invalid or expired session token"}\n'); f.flush(); break
+            f.write(_ok_response(columns=["n"], rows=[[1]], rows_affected=1)); f.flush()
+        conn.close()
+
+    def close(self):
+        self._srv.close()
+
+
+class TestAuth(unittest.TestCase):
+    def setUp(self):
+        self.srv = _FakeServer()
+
+    def tearDown(self):
+        self.srv.close()
+
+    def test_login_then_query_carries_token(self):
+        with VledgerClient.connect("127.0.0.1", self.srv.port, tls=False,
+                                   username="alice", password="s3cr3t") as db:
+            res = db.query("SELECT 1")
+            self.assertEqual(res.rows[0]["n"], 1)
+        self.assertEqual(self.srv.frames[0], {"auth": {"username": "alice", "password": "s3cr3t"}})
+        self.assertEqual(self.srv.frames[1]["token"], "tok123")
+        self.assertEqual(self.srv.frames[1]["sql"], "SELECT 1")
+
+    def test_wrong_password_raises_auth_error(self):
+        with self.assertRaises(VledgerAuthError):
+            VledgerClient.connect("127.0.0.1", self.srv.port, tls=False,
+                                  username="alice", password="wrong")
+
+    def test_no_credentials_against_auth_server_fails(self):
+        with VledgerClient.connect("127.0.0.1", self.srv.port, tls=False) as db:
+            with self.assertRaises(VledgerError):
+                db.query("SELECT 1")
+
+    def test_reconnect_logs_in_again(self):
+        db = VledgerClient.connect("127.0.0.1", self.srv.port, tls=False,
+                                   username="alice", password="s3cr3t")
+        db.reconnect()
+        db.query("SELECT 1")
+        db.close()
+        self.assertEqual(sum(1 for f in self.srv.frames if "auth" in f), 2)
+
+    def test_username_without_password_rejected(self):
+        with self.assertRaises(ValueError):
+            VledgerClient(username="alice")
 
 
 if __name__ == "__main__":

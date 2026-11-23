@@ -6,5 +6,5 @@
 
 export { VledgerClient }                                    from "./client";
 export type { VledgerClientOptions }                        from "./client";
-export { VledgerError, VledgerConnectionError, Row }        from "./types";
+export { VledgerError, VledgerConnectionError, VledgerAuthError, Row } from "./types";
 export type { QueryResult, MerkleProof }                    from "./types";

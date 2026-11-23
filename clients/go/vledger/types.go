@@ -20,8 +20,16 @@ import "fmt"
 
 // request is the JSON object sent to the server.
 type request struct {
-	SQL       string `json:"sql"`
-	WithProof bool   `json:"with_proof"`
+	SQL       string       `json:"sql,omitempty"`
+	WithProof bool         `json:"with_proof"`
+	Auth      *authRequest `json:"auth,omitempty"`  // first frame on a connection
+	Token     string       `json:"token,omitempty"` // session token from the auth response
+}
+
+// authRequest carries the credentials of the first frame.
+type authRequest struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
 }
 
 // rawResponse is the JSON object received from the server.
@@ -33,6 +41,8 @@ type rawResponse struct {
 	RowsAffected int               `json:"rows_affected,omitempty"`
 	Message      string            `json:"message,omitempty"`
 	Proof        *rawProof         `json:"proof,omitempty"`
+	Token        string            `json:"token,omitempty"`
+	Role         string            `json:"role,omitempty"`
 }
 
 type rawProof struct {
@@ -128,3 +138,12 @@ func (e *VledgerConnectionError) Error() string {
 }
 
 func (e *VledgerConnectionError) Unwrap() error { return e.Cause }
+
+// VledgerAuthError is returned when the server rejects the credentials.
+type VledgerAuthError struct {
+	Message string
+}
+
+func (e *VledgerAuthError) Error() string {
+	return fmt.Sprintf("vledger: authentication failed: %s", e.Message)
+}

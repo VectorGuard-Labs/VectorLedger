@@ -3,9 +3,12 @@ package vledger
 import (
 	"bufio"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"net"
+	"os"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -30,13 +33,20 @@ type Options struct {
 	// false → plaintext (development / test environments only)
 	UseTLS *bool
 	// TLSCACert is the path to a PEM CA certificate for server verification.
-	// Leave empty to skip verification (development only).
+	// When set, only this CA is trusted. The certificate must match Host, and
+	// the generated certificate is issued for "localhost".
 	TLSCACert string
 	// InsecureSkipVerify disables TLS certificate verification.
 	// Set to true only in development / test environments.
 	InsecureSkipVerify bool
 	// Timeout is the dial and read/write timeout (default: 30s).
 	Timeout time.Duration
+	// Username and Password are VectorLedger account credentials. Release
+	// builds of the server require them: the first frame on every connection
+	// is an auth frame and every later request carries the returned session
+	// token. Leave both empty only for a dev-no-auth server build.
+	Username string
+	Password string
 }
 
 // BoolPtr is a convenience helper that returns a pointer to a bool literal.
@@ -76,11 +86,15 @@ type Client struct {
 	opts   Options
 	conn   net.Conn
 	reader *bufio.Reader
+	token  string // session token; empty when no credentials were supplied
 	mu     sync.Mutex
 }
 
 // Connect opens a connection and returns a ready Client.
 func Connect(opts Options) (*Client, error) {
+	if (opts.Username == "") != (opts.Password == "") {
+		return nil, &VledgerAuthError{Message: "Username and Password must be set together"}
+	}
 	opts.applyDefaults()
 	c := &Client{opts: opts}
 	if err := c.dial(); err != nil {
@@ -101,6 +115,19 @@ func (c *Client) dial() error {
 			InsecureSkipVerify: c.opts.InsecureSkipVerify, //nolint:gosec
 			ServerName:         c.opts.Host,
 		}
+		// TLSCACert was documented but never loaded, so verification could only
+		// be switched off. Trust the supplied CA when one is given.
+		if c.opts.TLSCACert != "" {
+			pem, rerr := os.ReadFile(c.opts.TLSCACert)
+			if rerr != nil {
+				return &VledgerConnectionError{Cause: rerr}
+			}
+			pool := x509.NewCertPool()
+			if !pool.AppendCertsFromPEM(pem) {
+				return &VledgerConnectionError{Cause: fmt.Errorf("no certificates found in %s", c.opts.TLSCACert)}
+			}
+			tlsCfg.RootCAs = pool
+		}
 		dialer := &tls.Dialer{
 			NetDialer: &net.Dialer{Timeout: c.opts.Timeout},
 			Config:    tlsCfg,
@@ -116,6 +143,46 @@ func (c *Client) dial() error {
 
 	c.conn   = conn
 	c.reader = bufio.NewReader(conn)
+	c.token  = ""
+	if c.opts.Username != "" {
+		if err := c.authenticate(); err != nil {
+			_ = conn.Close()
+			c.conn = nil
+			return err
+		}
+	}
+	return nil
+}
+
+// authenticate sends the auth frame and stores the session token.
+// The server closes the connection after a failed login.
+func (c *Client) authenticate() error {
+	if err := c.conn.SetDeadline(time.Now().Add(c.opts.Timeout)); err != nil {
+		return &VledgerConnectionError{Cause: err}
+	}
+	line, err := json.Marshal(request{Auth: &authRequest{Username: c.opts.Username, Password: c.opts.Password}})
+	if err != nil {
+		return fmt.Errorf("vledger: marshal auth: %w", err)
+	}
+	if _, err = c.conn.Write(append(line, '\n')); err != nil {
+		return &VledgerConnectionError{Cause: err}
+	}
+	respLine, err := c.reader.ReadString('\n')
+	if err != nil {
+		return &VledgerConnectionError{Cause: err}
+	}
+	var raw rawResponse
+	if err = json.Unmarshal([]byte(respLine), &raw); err != nil {
+		return fmt.Errorf("vledger: parse auth response: %w", err)
+	}
+	if !raw.OK || raw.Token == "" {
+		msg := raw.Error
+		if msg == "" {
+			msg = "no session token returned"
+		}
+		return &VledgerAuthError{Message: msg}
+	}
+	c.token = raw.Token
 	return nil
 }
 
@@ -191,6 +258,9 @@ func (c *Client) Balance(account string) (int64, error) {
 	case json.Number:
 		n, e := v.Int64()
 		return n, e
+	case string:
+		// The server sends every cell as a JSON string.
+		return strconv.ParseInt(v, 10, 64)
 	default:
 		return 0, fmt.Errorf("vledger: unexpected balance type %T", raw)
 	}
@@ -220,7 +290,9 @@ func (c *Client) VerifyChain() (bool, error) {
 		return false, err
 	}
 	if len(result.Rows) == 0 {
-		return false, &VledgerError{Message: "no response from VERIFY_CHAIN()"}
+		// The server reports an integrity failure as an empty result whose
+		// message begins "INTEGRITY FAILURE".
+		return false, &VledgerError{Message: fmt.Sprintf("no response from VERIFY_CHAIN(): %s", result.Message)}
 	}
 	status, _ := result.Rows[0].Get("status")
 	if status != "OK" {
@@ -260,7 +332,7 @@ func (c *Client) send(sql string, withProof bool) (*QueryResult, error) {
 	}
 
 	// Encode and send request
-	req := request{SQL: sql, WithProof: withProof}
+	req := request{SQL: sql, WithProof: withProof, Token: c.token}
 	line, err := json.Marshal(req)
 	if err != nil {
 		return nil, fmt.Errorf("vledger: marshal request: %w", err)

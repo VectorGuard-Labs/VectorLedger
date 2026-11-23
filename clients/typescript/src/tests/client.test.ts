@@ -90,3 +90,87 @@ describe("VledgerClient._parseResult", () => {
     assert.equal(result.rowsAffected, 0);
   });
 });
+
+// ── Authentication ────────────────────────────────────────────────────────────
+
+import * as net from "node:net";
+import { VledgerAuthError } from "../types";
+
+/** Plaintext fake server that enforces the real handshake. */
+function authServer(): Promise<{ port: number; frames: any[]; close: () => void }> {
+  const frames: any[] = [];
+  const sockets = new Set<net.Socket>();
+  const srv = net.createServer((sock) => {
+    sockets.add(sock);
+    let authed = false;
+    let buf = "";
+    sock.on("data", (d) => {
+      buf += d.toString("utf8");
+      let i: number;
+      while ((i = buf.indexOf("\n")) >= 0) {
+        const req = JSON.parse(buf.slice(0, i));
+        buf = buf.slice(i + 1);
+        frames.push(req);
+        if (!authed) {
+          if (req.auth?.username === "alice" && req.auth?.password === "s3cr3t") {
+            authed = true;
+            sock.write(JSON.stringify({ ok: true, token: "tok123", role: "auditor", message: "authenticated" }) + "\n");
+            continue;
+          }
+          sock.end(JSON.stringify({ ok: false, error: "Authentication error: invalid credentials" }) + "\n");
+          return;
+        }
+        if (req.token !== "tok123") {
+          sock.end(JSON.stringify({ ok: false, error: "invalid or expired session token" }) + "\n");
+          return;
+        }
+        sock.write(JSON.stringify({ ok: true, columns: ["n"], rows: [[1]], rows_affected: 1, message: "ok" }) + "\n");
+      }
+    });
+  });
+  return new Promise((resolve) =>
+    srv.listen(0, "127.0.0.1", () =>
+      resolve({
+        port: (srv.address() as net.AddressInfo).port,
+        frames,
+        close: () => { sockets.forEach((s) => s.destroy()); srv.close(); },
+      }),
+    ),
+  );
+}
+
+describe("VledgerClient authentication", () => {
+  it("logs in first and sends the token on every request", async () => {
+    const s = await authServer();
+    const db = await VledgerClient.connect({ port: s.port, tls: false, username: "alice", password: "s3cr3t" });
+    try {
+      const r = await db.query("SELECT 1");
+      assert.equal(r.rows[0].get("n"), 1);
+      assert.deepEqual(s.frames[0], { auth: { username: "alice", password: "s3cr3t" } });
+      assert.equal(s.frames[1].token, "tok123");
+      assert.equal(s.frames[1].sql, "SELECT 1");
+    } finally { db.close(); s.close(); }
+  });
+
+  it("rejects a wrong password with VledgerAuthError", async () => {
+    const s = await authServer();
+    try {
+      await assert.rejects(
+        VledgerClient.connect({ port: s.port, tls: false, username: "alice", password: "nope" }),
+        (e: unknown) => e instanceof VledgerAuthError && /invalid credentials/.test((e as Error).message),
+      );
+    } finally { s.close(); }
+  });
+
+  it("an unauthenticated query is refused by an auth-enforcing server", async () => {
+    const s = await authServer();
+    const db = await VledgerClient.connect({ port: s.port, tls: false });
+    try {
+      await assert.rejects(db.query("SELECT 1"), VledgerError);
+    } finally { db.close(); s.close(); }
+  });
+
+  it("requires username and password together", async () => {
+    await assert.rejects(VledgerClient.connect({ tls: false, username: "alice" }), VledgerAuthError);
+  });
+});

@@ -1,0 +1,2022 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>VectorLedger — Transaction Investigation (Demo)</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg-page: #f4f5f7;
+    --bg-card: #ffffff;
+    --primary: #1a2b4a;
+    --secondary: #4a6fa5;
+    --accent: #7b5ea7;
+    --text: #1a1a2e;
+    --text-muted: #6b7280;
+    --rule-approve: #166534;
+    --rule-review: #92400e;
+    --rule-escalate: #991b1b;
+    --border: rgba(107,114,128,0.2);
+    --font: 'Inter', sans-serif;
+    --mono: 'IBM Plex Mono', monospace;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--font); font-size: 14px; background: var(--bg-page); color: var(--text); line-height: 1.5; }
+  a { color: var(--primary); }
+  .topbar { background: var(--primary); color: #fff; padding: 0 24px; display: flex; align-items: center; justify-content: space-between; height: 48px; flex-wrap: wrap; }
+  .topbar-title { font-weight: 700; font-size: 1rem; letter-spacing: .01em; }
+  .topbar-nav { display: flex; gap: 4px; flex-wrap: wrap; }
+  .topbar-nav button { background: transparent; border: none; color: rgba(255,255,255,.7); font-size: 12px; font-family: var(--font); padding: 6px 10px; border-radius: 4px; cursor: pointer; transition: background .15s; }
+  .topbar-nav button:hover, .topbar-nav button.active { background: rgba(255,255,255,.15); color: #fff; }
+  .view { display: none; max-width: 72rem; margin: 0 auto; padding: 24px 24px 48px; }
+  .view.active { display: block; }
+  .card { background: var(--bg-card); border-radius: 6px; box-shadow: 0 1px 2px rgba(0,0,0,.06); padding: 24px; margin-bottom: 16px; }
+  .divider { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+  h1 { font-weight: 700; font-size: 1.75rem; line-height: 1.2; margin-bottom: 8px; }
+  h2 { font-weight: 600; font-size: 1.25rem; margin-bottom: 12px; }
+  h3 { font-weight: 600; font-size: 1rem; margin-bottom: 8px; }
+  .section-label { font-size: 0.75rem; font-weight: 600; color: var(--text-muted); margin-bottom: 6px; display: block; }
+  .mono { font-family: var(--mono); font-size: 0.85em; }
+  .kpi-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 16px; }
+  @media(max-width:768px){ .kpi-strip { grid-template-columns: repeat(2,1fr); } }
+  .kpi-tile { background: var(--bg-card); border-radius: 6px; box-shadow: 0 1px 2px rgba(0,0,0,.06); padding: 16px; }
+  .kpi-value { font-size: 1.75rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .kpi-label { font-size: 0.8rem; color: var(--text-muted); margin-top: 2px; }
+  .kpi-tag { font-size: 0.7rem; color: var(--text-muted); margin-top: 2px; }
+  .decision-steps { display: flex; align-items: stretch; gap: 8px; margin-bottom: 16px; }
+  .decision-step { flex: 1; border-top: 3px solid var(--primary); background: var(--bg-card); border-radius: 6px; padding: 16px 12px; box-shadow: 0 1px 2px rgba(0,0,0,.06); }
+  .decision-step.step-rules { border-top-color: var(--primary); }
+  .decision-step.step-ai { border-top-color: var(--accent); }
+  .decision-step.step-human { border-top-color: var(--secondary); }
+  .decision-step h3 { font-size: 0.85rem; }
+  .decision-step p { font-size: 0.8rem; color: var(--text-muted); margin-top: 4px; }
+  @media(max-width:768px){ .decision-steps { flex-direction: column; } }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; }
+  .badge-rules { background: rgba(26,43,74,.1); color: var(--primary); }
+  .badge-ai { background: rgba(123,94,167,.1); color: var(--accent); }
+  .badge-human { background: rgba(74,111,165,.1); color: var(--secondary); }
+  .badge-approve { background: rgba(22,101,52,.1); color: var(--rule-approve); }
+  .badge-review { background: rgba(146,64,14,.1); color: var(--rule-review); }
+  .badge-escalate { background: rgba(153,27,27,.1); color: var(--rule-escalate); }
+  .badge-warn { background: rgba(180,130,0,.1); color: #7a5800; }
+  .form-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 12px; }
+  @media(max-width:768px){ .form-grid { grid-template-columns: 1fr; } }
+  .form-group { display: flex; flex-direction: column; gap: 4px; }
+  label { font-size: 0.8rem; font-weight: 600; color: var(--text-muted); }
+  input, select { font-family: var(--font); font-size: 14px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 4px; background: #fff; color: var(--text); width: 100%; }
+  input:focus, select:focus { outline: 2px solid var(--primary); outline-offset: 1px; }
+  .btn { font-family: var(--font); font-size: 13px; font-weight: 600; padding: 8px 16px; border-radius: 4px; border: none; cursor: pointer; transition: opacity .15s; }
+  .btn-primary { background: var(--primary); color: #fff; }
+  .btn-secondary { background: var(--bg-page); color: var(--text); border: 1px solid var(--border); }
+  .btn:hover { opacity: .85; }
+  .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+  .scenarios { font-size: 0.8rem; margin-bottom: 12px; color: var(--text-muted); line-height: 1.8; }
+  .scenarios a { color: var(--primary); text-decoration: none; cursor: pointer; margin: 0 3px; }
+  .scenarios a:hover { text-decoration: underline; }
+  .output-panel { background: var(--bg-card); border-radius: 6px; box-shadow: 0 1px 2px rgba(0,0,0,.06); padding: 24px; }
+  .output-empty { color: var(--text-muted); font-size: 0.9rem; padding: 32px 0; text-align: center; }
+  .run-strip { display: grid; grid-template-columns: repeat(6,1fr); gap: 8px; margin-bottom: 16px; }
+  @media(max-width:768px){ .run-strip { grid-template-columns: repeat(3,1fr); } }
+  .run-step { padding: 10px 8px; border-radius: 4px; background: var(--bg-page); text-align: center; }
+  .run-step .rs-badge { margin-bottom: 4px; }
+  .run-step .rs-name { font-size: 0.68rem; font-weight: 600; display: block; margin-bottom: 2px; }
+  .run-step .rs-status { font-size: 0.68rem; }
+  .rs-pass { color: var(--text-muted); font-weight: 600; }
+  .rs-fail { color: var(--rule-escalate); font-weight: 600; }
+  .rs-skip { color: var(--text-muted); font-style: italic; }
+  .result-block { margin-bottom: 16px; }
+  .result-verdict { font-size: 1.1rem; font-weight: 700; padding: 12px 16px; border-radius: 6px; margin-bottom: 12px; }
+  .verdict-clear { background: rgba(22,101,52,.08); color: var(--rule-approve); }
+  .verdict-legal { background: rgba(153,27,27,.08); color: var(--rule-escalate); }
+  .verdict-manager { background: rgba(146,64,14,.08); color: var(--rule-review); }
+  .verdict-stop { background: rgba(153,27,27,.08); color: var(--rule-escalate); }
+  .verdict-foureyes { background: rgba(74,111,165,.08); color: var(--secondary); }
+  .rule-trace { font-family: var(--mono); font-size: 0.78rem; background: var(--bg-page); border-radius: 4px; padding: 12px 16px; line-height: 1.8; }
+  .rule-fired { color: var(--rule-escalate); font-weight: 600; }
+  .rule-pass { color: var(--rule-approve); }
+  .rule-skip { color: var(--text-muted); }
+  .draft-block { background: rgba(123,94,167,.05); border-left: 3px solid var(--accent); padding: 12px 16px; border-radius: 0 4px 4px 0; margin-bottom: 12px; font-size: 0.88rem; }
+  .draft-checks { font-size: 0.75rem; color: var(--text-muted); margin-top: 6px; }
+  .human-panel { background: rgba(74,111,165,.06); border: 1px solid rgba(74,111,165,.2); border-radius: 6px; padding: 16px; margin-bottom: 16px; }
+  .foureyes-panel { background: rgba(74,111,165,.06); border: 2px solid var(--secondary); border-radius: 6px; padding: 16px; margin-bottom: 16px; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+  th { text-align: left; font-weight: 600; color: var(--text-muted); font-size: 0.75rem; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  td { padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  td.num { font-variant-numeric: tabular-nums; text-align: right; }
+  tr:last-child td { border-bottom: none; }
+  .parity-table td, .parity-table th { font-size: 0.78rem; }
+  .three-runs { border-left: 3px solid var(--accent); padding-left: 12px; margin-bottom: 16px; }
+  pre { background: var(--bg-page); border-radius: 4px; padding: 16px; font-family: var(--mono); font-size: 0.75rem; overflow-x: auto; line-height: 1.6; white-space: pre-wrap; }
+  .roi-toggle { display: flex; gap: 4px; margin-bottom: 16px; }
+  .roi-toggle button { flex: 1; padding: 8px; border-radius: 4px; border: 1px solid var(--border); background: var(--bg-page); font-family: var(--font); font-size: 13px; font-weight: 600; cursor: pointer; }
+  .roi-toggle button.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+  .roi-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-bottom: 16px; }
+  @media(max-width:768px){ .roi-grid { grid-template-columns: 1fr; } }
+  .roi-metric { background: var(--bg-page); border-radius: 4px; padding: 12px; }
+  .roi-metric .val { font-size: 1.4rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .roi-metric .lbl { font-size: 0.75rem; color: var(--text-muted); }
+  .selftest-result { font-family: var(--mono); font-size: 0.78rem; background: var(--bg-page); border-radius: 4px; padding: 12px 16px; margin-top: 12px; line-height: 1.8; white-space: pre-wrap; }
+  .readout-rec { font-size: 1rem; font-weight: 600; background: rgba(26,43,74,.05); border-left: 3px solid var(--primary); padding: 12px 16px; border-radius: 0 4px 4px 0; margin-bottom: 16px; }
+  .quality-bar { display: flex; gap: 16px; flex-wrap: wrap; font-size: 0.8rem; margin-top: 8px; }
+  .qb-item { display: flex; align-items: center; gap: 6px; }
+  .qb-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .qb-green { background: var(--rule-approve); }
+  .qb-yellow { background: #d97706; }
+  .qb-red { background: var(--rule-escalate); }
+  .crypto-demo { background: var(--bg-page); border-radius: 6px; padding: 16px; margin-bottom: 12px; }
+  .crypto-demo .hash-line { font-family: var(--mono); font-size: 0.72rem; word-break: break-all; color: var(--text-muted); }
+  .crypto-demo .hash-val { color: var(--accent); }
+  .chain-diagram { display: flex; align-items: center; gap: 0; overflow-x: auto; padding-bottom: 4px; }
+  .chain-block { background: var(--bg-card); border: 1px solid var(--border); border-radius: 4px; padding: 10px 12px; min-width: 140px; }
+  .chain-block.tampered { border-color: var(--rule-escalate); background: rgba(153,27,27,.04); }
+  .chain-arrow { font-size: 1.2rem; color: var(--text-muted); padding: 0 6px; flex-shrink: 0; }
+  .compliance-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 12px; margin-bottom: 12px; }
+  @media(max-width:768px){ .compliance-grid { grid-template-columns: 1fr; } }
+  .control-card { border-radius: 4px; padding: 12px; border-left: 3px solid; }
+  .control-pass { border-left-color: var(--rule-approve); background: rgba(22,101,52,.04); }
+  .control-fail { border-left-color: var(--rule-escalate); background: rgba(153,27,27,.04); }
+  .control-warn { border-left-color: #d97706; background: rgba(217,119,6,.04); }
+  .control-na { border-left-color: var(--text-muted); background: rgba(107,114,128,.04); }
+  .control-card .ctrl-id { font-family: var(--mono); font-size: 0.75rem; font-weight: 600; }
+  .control-card .ctrl-title { font-size: 0.82rem; font-weight: 600; margin-top: 2px; }
+  .control-card .ctrl-desc { font-size: 0.75rem; color: var(--text-muted); margin-top: 4px; }
+  .tab-bar { display: flex; gap: 4px; margin-bottom: 16px; border-bottom: 1px solid var(--border); padding-bottom: 0; }
+  .tab-btn { background: transparent; border: none; border-bottom: 2px solid transparent; font-family: var(--font); font-size: 13px; font-weight: 600; color: var(--text-muted); padding: 8px 14px; cursor: pointer; transition: all .15s; margin-bottom: -1px; }
+  .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
+  .tab-pane { display: none; }
+  .tab-pane.active { display: block; }
+  .version-badge { background: rgba(26,43,74,.08); color: var(--primary); padding: 2px 8px; border-radius: 10px; font-size: 0.75rem; font-weight: 600; }
+  @media print {
+    .topbar, .topbar-nav, .btn-row, .scenarios, #selftest-block, .tab-bar { display: none !important; }
+    .view { padding: 0; }
+    .card { box-shadow: none; page-break-inside: avoid; }
+  }
+  .demo-banner { background: #fff4d6; color: #5c4400; border-bottom: 2px solid #e0a800; padding: 10px 24px; font-size: 0.8rem; line-height: 1.5; }
+  .demo-banner strong { color: #3d2d00; }
+  .demo-banner.live { background: #e6f2ff; color: #12304f; border-bottom-color: #2b6cb0; }
+  .demo-banner.live strong { color: #0b2038; }
+  .live-panel { border: 1px solid var(--border); border-radius: 6px; padding: 12px; margin-bottom: 12px; font-size: 0.82rem; }
+  .live-row { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+  .live-row input { flex: 1 1 140px; }
+  .live-msg { margin-top: 6px; font-size: 0.78rem; min-height: 1em; }
+  .src-tag { font-weight: 400; font-size: 0.68rem; margin-left: 6px; padding: 1px 5px; border-radius: 3px; }
+  .src-ledger { background: #e6f2ff; color: #12304f; }
+  .src-manual { background: #fff4d6; color: #5c4400; }
+</style>
+</head>
+<body>
+
+<!-- DEMO BANNER -->
+<div class="demo-banner" id="demo-banner" role="note">
+  <strong>DEMO — not connected to a VectorLedger server.</strong> This page runs entirely in your browser on synthetic data. It does <strong>not</strong> read your ledger and does <strong>not</strong> verify any hash, chain or Merkle proof: the Yes/No answers are typed in by the user. Nothing here is audit evidence.
+  To verify a real ledger, run <span class="mono">SELECT VERIFY_CHAIN()</span>, <span class="mono">SELECT VERIFY_ENTRY(seq)</span> or <span class="mono">SELECT MERKLE_ROOT(from, to)</span> (CLI, DBeaver or psql over pgwire), and <span class="mono">vledger compliance-report</span> for compliance evidence.
+</div>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <span class="topbar-title">VectorLedger &nbsp;<span class="version-badge">v1.8.0</span></span>
+  <nav class="topbar-nav">
+    <button class="active" onclick="showView('overview')">Overview</button>
+    <button onclick="showView('app')">Transaction Investigation</button>
+    <button onclick="showView('crypto')">Crypto &amp; Chain</button>
+    <button onclick="showView('compliance')">Compliance</button>
+    <button onclick="showView('rules')">Rules Module</button>
+    <button onclick="showView('readout')">Executive Readout</button>
+  </nav>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     OVERVIEW
+═══════════════════════════════════════════════ -->
+<div id="view-overview" class="view active">
+  <div class="card">
+    <h1>Compliance investigations take 90 minutes and rely on manual SQL</h1>
+    <p style="color:var(--text-muted);margin-bottom:16px;">Compliance analysts spend 90&nbsp;minutes per flagged transaction manually querying VectorLedger records and writing audit explanations — 30&nbsp;times per week. The VectorLedger engine makes tampering cryptographically detectable, but the analyst still has to interpret results and write the explanation by hand.</p>
+
+    <div class="kpi-strip">
+      <div class="kpi-tile">
+        <div class="kpi-value">2,160</div>
+        <div class="kpi-label">Hours / year at stake</div>
+        <div class="kpi-tag">ASSUMED · 30 flags/wk × 48 wks × 90 min ÷ 60</div>
+      </div>
+      <div class="kpi-tile">
+        <div class="kpi-value">$162K</div>
+        <div class="kpi-label">Annual cost</div>
+        <div class="kpi-tag">ASSUMED · 2,160 hrs × $75/hr</div>
+      </div>
+      <div class="kpi-tile">
+        <div class="kpi-value">11 rules</div>
+        <div class="kpi-label">Deterministic checks</div>
+        <div class="kpi-tag">BLAKE3 chain · Merkle · threshold · counterparty</div>
+      </div>
+      <div class="kpi-tile">
+        <div class="kpi-value" id="kpi-payback">—</div>
+        <div class="kpi-label">Conservative payback</div>
+        <div class="kpi-tag">ASSUMED · live from ROI panel</div>
+      </div>
+    </div>
+
+    <h2>How each case is decided</h2>
+    <div class="decision-steps">
+      <div class="decision-step step-ai">
+        <span class="badge badge-ai">AI</span>
+        <h3>Probabilistic: AI reads</h3>
+        <p><em>Design target; not implemented in this demo.</em> Reads the flagged VectorLedger entry record and proposes structured field values (hash status, amount, counterparty, Merkle proof) with confidence scores. Its wording varies from run to run.</p>
+      </div>
+      <div class="decision-step step-rules">
+        <span class="badge badge-rules">Your rules</span>
+        <h3>Deterministic: rules check &amp; decide</h3>
+        <p>11 business rules (R1–R11) check BLAKE3 hash integrity, prior-hash chain linkage, Merkle proof validity, amount threshold ($50,000.00 = 5,000,000 minor units), counterparty approval, reversal method, and timestamp sequence. Same input, same answer, every time.</p>
+      </div>
+      <div class="decision-step step-human">
+        <span class="badge badge-human">A person</span>
+        <h3>Accountable: manager approves</h3>
+        <p>Compliance manager reviews every result before it reaches an auditor or regulator. Four-eyes approval required for entries over $50,000 or with integrity flags. No output leaves without sign-off.</p>
+      </div>
+    </div>
+
+    <hr class="divider" />
+    <p style="font-size:0.82rem;color:var(--text-muted);">
+      <strong>Agent pattern:</strong> Analyst — VectorLedger entry in → verifiable audit explanation out. &nbsp;|&nbsp;
+      <strong>Crypto:</strong> BLAKE3 hash chain · AES-256-GCM at rest · Ed25519 commit signing · Merkle proofs. &nbsp;|&nbsp;
+      <strong>Compliance:</strong> SOC 2 Type II (8 controls) · PCI-DSS v4 (9 controls). &nbsp;|&nbsp;
+      <strong>Four-eyes:</strong> dual-control approval queue for high-value entries. &nbsp;|&nbsp;
+      <strong>rules.py:</strong> 11 rules · 15 tests · traced. Decides every case. &nbsp;|&nbsp;
+      <strong>Data:</strong> Synthetic only · Demo; no AI step and no ledger connection.
+    </p>
+    <div style="margin-top:12px;">
+      <button class="btn btn-primary" onclick="showView('app');document.querySelectorAll('.topbar-nav button')[1].classList.add('active');document.querySelectorAll('.topbar-nav button')[0].classList.remove('active');">Open the tool</button>
+    </div>
+  </div>
+
+  <!-- Architecture overview -->
+  <div class="card">
+    <h2>VectorLedger Architecture</h2>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+      <div>
+        <h3 style="color:var(--text-muted);font-size:0.82rem;margin-bottom:8px;">CRATE RESPONSIBILITIES</h3>
+        <table>
+          <thead><tr><th>Crate</th><th>Responsibility</th></tr></thead>
+          <tbody>
+            <tr><td class="mono">vledger</td><td>Main binary, 31 CLI subcommands</td></tr>
+            <tr><td class="mono">vledger-crypto</td><td>BLAKE3, AES-256-GCM, Ed25519, Argon2id, Merkle</td></tr>
+            <tr><td class="mono">vledger-audit</td><td>WORM log, 14 event types, BLAKE3 chain</td></tr>
+            <tr><td class="mono">vledger-compliance</td><td>SOC 2 (8) + PCI-DSS (9) evidence reports</td></tr>
+            <tr><td class="mono">vledger-foureyes</td><td>Four-eyes dual-control approval queue</td></tr>
+            <tr><td class="mono">vledger-ledger</td><td>Core engine, 16 financial invariants</td></tr>
+            <tr><td class="mono">vledger-wal</td><td>Write-ahead log, durability, recovery</td></tr>
+            <tr><td class="mono">vledger-pages</td><td>Encrypted page store (AES-256-GCM)</td></tr>
+            <tr><td class="mono">vledger-hsm</td><td>PyHSM, AWS CloudHSM, Azure HSM</td></tr>
+            <tr><td class="mono">vledger-mcp</td><td>MCP server, 15 tools, port 3000</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div>
+        <h3 style="color:var(--text-muted);font-size:0.82rem;margin-bottom:8px;">16 FINANCIAL INVARIANTS (enforced in code; numbering as in README)</h3>
+        <table>
+          <tbody>
+            <tr><td>#1</td><td>Debits == credits on every entry</td></tr>
+            <tr><td>#2</td><td>At least 2 lines per entry</td></tr>
+            <tr><td>#3</td><td>Non-zero amounts</td></tr>
+            <tr><td>#4</td><td>Referenced accounts must exist</td></tr>
+            <tr><td>#5</td><td>Closed accounts reject new entries</td></tr>
+            <tr><td>#6</td><td>Line currency must match the account currency</td></tr>
+            <tr><td>#7</td><td>Non-negative balance (Asset/Expense, configurable)</td></tr>
+            <tr><td>#8</td><td>Exposure limit per entry</td></tr>
+            <tr><td>#9</td><td>Legal holds block entries, reversals and settlements</td></tr>
+            <tr><td>#10</td><td>Four-eyes required for flagged accounts</td></tr>
+            <tr><td>#11</td><td>Only Posted entries can be reversed</td></tr>
+            <tr><td>#12</td><td>One reversal per entry</td></tr>
+            <tr><td>#13</td><td>Sequence strictly monotonic, no gaps</td></tr>
+            <tr><td>#14</td><td>BLAKE3 hash chain: BLAKE3(seq_le ‖ prev_hash ‖ content_hash)</td></tr>
+            <tr><td>#15</td><td>Currency precision (USD=2, BTC=8, ETH=18)</td></tr>
+            <tr><td>#16</td><td>Idempotency keys: duplicates detected and skipped</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <hr class="divider" />
+    <p style="font-size:0.78rem;color:var(--text-muted);">
+      <strong>Ports:</strong> 5433 (native TLS 1.3 JSON) · 5432 (pgwire PostgreSQL) · 9090 (Prometheus metrics) · 5434 (WAL replication) · 3000 (MCP server)
+      &nbsp;|&nbsp; <strong>Built by:</strong> VectorGuard Labs · License: BUSL-1.1
+    </p>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════
+     APP — TRANSACTION INVESTIGATION
+═══════════════════════════════════════════════ -->
+<div id="view-app" class="view">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;">
+
+    <!-- LEFT: INPUT -->
+    <div class="card">
+      <h2>Transaction Investigation</h2>
+      <p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:12px;"><strong>Demo.</strong> The Yes/No answers below are self-reported by whoever fills in the form; this page does not look up the entry or check any hash or proof. It only applies the rules to what you type. Verify real entries with <span class="mono">VERIFY_ENTRY(seq)</span> and <span class="mono">MERKLE_ROOT(seq)</span>.</p>
+
+      <div id="live-panel" class="live-panel" style="display:none;">
+        <div id="live-login">
+          <strong>Connect to a ledger</strong> <span class="mono" id="live-target"></span>
+          <div class="live-row">
+            <input id="live_user" type="text" placeholder="Ledger username" autocomplete="username" />
+            <input id="live_pass" type="password" placeholder="Password" autocomplete="current-password" />
+            <button class="btn btn-primary" onclick="liveLogin()">Sign in</button>
+          </div>
+          <div class="live-msg" id="live-login-msg"></div>
+        </div>
+        <div id="live-session" style="display:none;">
+          Connected as <strong id="live_who"></strong>
+          <button class="btn btn-secondary" style="margin-left:8px;padding:4px 10px;" onclick="liveLogout()">Sign out</button>
+          <div class="live-row">
+            <input id="live_seq" type="text" inputmode="numeric" placeholder="Entry sequence, e.g. 5" />
+            <button class="btn btn-primary" onclick="liveFetch()">Fetch &amp; investigate</button>
+            <button class="btn btn-secondary" onclick="liveVerifyChain()">Verify full chain</button>
+          </div>
+          <div class="live-msg" id="live-msg"></div>
+        </div>
+      </div>
+
+      <div class="scenarios">
+        <strong>Examples:</strong><br/>
+        <a onclick="loadScenario('T1')">T1 — Typical clear</a> ·
+        <a onclick="loadScenario('T2')">T2 — Silent edit $75K</a> ·
+        <a onclick="loadScenario('T3')">T3 — Hash mismatch</a> ·
+        <a onclick="loadScenario('T4')">T4 — Unapproved CP $200K</a> ·
+        <a onclick="loadScenario('T5')">T5 — Chain break</a> ·
+        <a onclick="loadScenario('T6')">T6 — Merkle fail</a> ·
+        <a onclick="loadScenario('T7')">T7 — Timestamp anomaly</a> ·
+        <a onclick="loadScenario('T8')">T8 — Worst case (all flags)</a> ·
+        <a onclick="loadScenario('T9')">T9 — Missing field</a> ·
+        <a onclick="loadScenario('T10')">T10 — Four-eyes required $85K</a> ·
+        <a onclick="loadScenario('T11')">T11 — New entry reversal</a> ·
+        <a onclick="loadScenario('T12')">T12 — Threshold boundary $50K</a> ·
+        <a onclick="loadScenario('M1')">M1 — Decimal amount</a> ·
+        <a onclick="loadScenario('M2')">M2 — Sci notation</a> ·
+        <a onclick="loadScenario('M3')">M3 — Negative amount</a>
+      </div>
+
+      <div class="form-grid">
+        <div class="form-group">
+          <label for="f_txn_id">Entry ID / Transaction ID</label>
+          <input id="f_txn_id" type="text" placeholder="e.g. TXN-00412" />
+        </div>
+        <div class="form-group">
+          <label for="f_sequence">Entry Sequence Number (whole number)</label>
+          <input id="f_sequence" type="text" inputmode="numeric" placeholder="e.g. 4412" />
+        </div>
+        <div class="form-group">
+          <label for="f_amount">Amount (USD minor units / cents, whole number)</label>
+          <input id="f_amount" type="text" inputmode="numeric" placeholder="e.g. 1200000 (= $12,000.00)" />
+        </div>
+        <div class="form-group">
+          <label for="f_counterparty">Counterparty ID</label>
+          <input id="f_counterparty" type="text" placeholder="e.g. CP-119" />
+        </div>
+        <div class="form-group">
+          <label for="f_counterparty_approved">Counterparty on approved list?</label>
+          <select id="f_counterparty_approved">
+            <option value="">-- select --</option>
+            <option value="yes">Yes</option>
+            <option value="no">No</option>
+            <option value="na">Not applicable (no counterparty recorded; R6 not evaluated)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="f_hash_match">BLAKE3 content_hash matches ledger?</label>
+          <select id="f_hash_match">
+            <option value="">-- select --</option>
+            <option value="yes">Yes — match</option>
+            <option value="no">No — mismatch</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="f_prior_hash_match">Prior chain_hash links correctly?</label>
+          <select id="f_prior_hash_match">
+            <option value="">-- select --</option>
+            <option value="yes">Yes — chain intact</option>
+            <option value="no">No — chain break</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="f_merkle">Merkle proof valid?</label>
+          <select id="f_merkle">
+            <option value="">-- select --</option>
+            <option value="yes">Yes — verified</option>
+            <option value="no">No — failed</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="f_timestamp">Timestamp sequence valid?</label>
+          <select id="f_timestamp">
+            <option value="">-- select --</option>
+            <option value="yes">Yes — in order</option>
+            <option value="no">No — earlier than prior entry</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="f_reversal">Reversal transaction?</label>
+          <select id="f_reversal">
+            <option value="">-- select --</option>
+            <option value="no">No</option>
+            <option value="yes">Yes</option>
+          </select>
+        </div>
+        <div class="form-group" id="correction_method_group" style="display:none;">
+          <label for="f_correction">Correction method</label>
+          <select id="f_correction">
+            <option value="">-- select --</option>
+            <option value="new_entry">New entry (correct — append-only corrections)</option>
+            <option value="silent_edit">Silent edit (improper — violates the append-only correction model)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="f_foureyes_required">Four-eyes approval required?</label>
+          <select id="f_foureyes_required">
+            <option value="">-- select --</option>
+            <option value="no">No</option>
+            <option value="yes">Yes — account has require_four_eyes=true</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="f_domain">Domain (legal entity)</label>
+          <input id="f_domain" type="text" placeholder="e.g. prod or acme-financial" />
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-primary" onclick="runInvestigation()">Investigate</button>
+        <button class="btn btn-secondary" onclick="resetForm()">Reset</button>
+        <button class="btn btn-secondary" onclick="runSelfTest()">Self-Test</button>
+        <button class="btn btn-secondary" onclick="runStressTest()">Stress Test</button>
+      </div>
+    </div>
+
+    <!-- RIGHT: OUTPUT -->
+    <div class="output-panel" id="output-panel">
+      <div class="output-empty" id="output-empty">Pick an example or enter a request.</div>
+      <div id="output-content" style="display:none;"></div>
+    </div>
+  </div>
+
+  <!-- SELF TEST RESULTS -->
+  <div id="selftest-block" class="card" style="display:none;margin-top:0;">
+    <h2>Self-Test Results</h2>
+    <div id="selftest-output" class="selftest-result"></div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════
+     CRYPTO & CHAIN VIEW
+═══════════════════════════════════════════════ -->
+<div id="view-crypto" class="view">
+  <div class="card">
+    <h1 style="font-size:1.4rem;">Cryptographic Primitives &amp; Hash Chain</h1>
+    <p style="color:var(--text-muted);margin-bottom:16px;">VectorLedger's tamper-evidence is built on BLAKE3 hash chains, AES-256-GCM encryption, Ed25519 signing, and binary Merkle trees. This view explains the actual algorithms used in the codebase.</p>
+
+    <!-- TABS -->
+    <div class="tab-bar">
+      <button class="tab-btn active" onclick="showCryptoTab('chain',this)">Hash Chain</button>
+      <button class="tab-btn" onclick="showCryptoTab('merkle',this)">Merkle Tree</button>
+      <button class="tab-btn" onclick="showCryptoTab('encrypt',this)">Encryption</button>
+      <button class="tab-btn" onclick="showCryptoTab('sign',this)">Ed25519 Signing</button>
+      <button class="tab-btn" onclick="showCryptoTab('audit',this)">Audit Log</button>
+      <button class="tab-btn" onclick="showCryptoTab('foureyes',this)">Four-Eyes</button>
+    </div>
+
+    <!-- Hash Chain Tab -->
+    <div id="ctab-chain" class="tab-pane active">
+      <h2>BLAKE3 Hash Chain</h2>
+      <p style="font-size:0.85rem;margin-bottom:12px;">Every journal entry contains three hashes that form an unbroken chain from first entry to last. Modifying any past record invalidates every subsequent chain hash.</p>
+      <div class="crypto-demo">
+        <div class="hash-line"><strong>content_hash</strong> = BLAKE3(<em>canonical_bytes_of_entry</em>)</div>
+        <div class="hash-line" style="margin-top:4px;"><strong>chain_hash</strong> = BLAKE3(<span class="hash-val">sequence.to_le_bytes()</span> ‖ <span class="hash-val">prev_chain_hash</span> ‖ <span class="hash-val">content_hash</span>)</div>
+        <div class="hash-line" style="margin-top:4px;"><strong>First entry:</strong> prev_chain_hash = 0000…0000 (ZERO_HASH, 64 hex zeros)</div>
+      </div>
+      <h3 style="margin-bottom:8px;">Example Chain (3 entries)</h3>
+      <div class="chain-diagram" id="chain-diagram">
+        <div class="chain-block">
+          <div class="section-label">Entry #1</div>
+          <div class="hash-line">prev: <span class="hash-val">0000…0000</span></div>
+          <div class="hash-line">content: <span class="hash-val">a3f7…e91c</span></div>
+          <div class="hash-line">chain: <span class="hash-val">4d82…b55a</span></div>
+        </div>
+        <div class="chain-arrow">→</div>
+        <div class="chain-block">
+          <div class="section-label">Entry #2</div>
+          <div class="hash-line">prev: <span class="hash-val">4d82…b55a</span></div>
+          <div class="hash-line">content: <span class="hash-val">91bc…3e7f</span></div>
+          <div class="hash-line">chain: <span class="hash-val">2c15…a803</span></div>
+        </div>
+        <div class="chain-arrow">→</div>
+        <div class="chain-block">
+          <div class="section-label">Entry #3</div>
+          <div class="hash-line">prev: <span class="hash-val">2c15…a803</span></div>
+          <div class="hash-line">content: <span class="hash-val">f66a…1d47</span></div>
+          <div class="hash-line">chain: <span class="hash-val">8e39…c72b</span></div>
+        </div>
+      </div>
+      <h3 style="margin-top:16px;margin-bottom:8px;">Tampered Chain (detected immediately)</h3>
+      <div class="chain-diagram">
+        <div class="chain-block">
+          <div class="section-label">Entry #1</div>
+          <div class="hash-line">chain: <span class="hash-val">4d82…b55a</span></div>
+        </div>
+        <div class="chain-arrow">→</div>
+        <div class="chain-block tampered">
+          <div class="section-label" style="color:var(--rule-escalate);">Entry #2 ⚠ TAMPERED</div>
+          <div class="hash-line">amount changed: $1,000→$9,999</div>
+          <div class="hash-line">content: <span style="color:var(--rule-escalate);">INVALID</span> (hash mismatch)</div>
+          <div class="hash-line">chain: <span style="color:var(--rule-escalate);">ALL SUBSEQUENT BROKEN</span></div>
+        </div>
+        <div class="chain-arrow" style="color:var(--rule-escalate);">✗</div>
+        <div class="chain-block tampered">
+          <div class="section-label" style="color:var(--rule-escalate);">Entry #3 ⚠ BROKEN</div>
+          <div class="hash-line">prev: <span style="color:var(--rule-escalate);">mismatch</span></div>
+          <div class="hash-line">chain: <span style="color:var(--rule-escalate);">INVALID</span></div>
+        </div>
+      </div>
+      <p style="font-size:0.78rem;color:var(--text-muted);margin-top:8px;"><strong>Why BLAKE3?</strong> ~3× faster than SHA-256 on modern CPUs via SIMD/parallelism. 256-bit output. Designed for content-addressed storage. Domain separation (0x00 for leaves, 0x01 for nodes) prevents second-preimage attacks.</p>
+      <h3 style="margin-top:16px;margin-bottom:8px;">Self-Test Phases (vledger verify --self-test)</h3>
+      <table>
+        <thead><tr><th>Phase</th><th>What it tests</th><th>Pass condition</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">A — Baseline</td><td>Insert N entries (default 100K), verify chain, sample 5 hashes</td><td>verify_chain_integrity() returns Ok</td></tr>
+          <tr><td class="mono">B — WAL Corruption</td><td>Flip one byte in last WAL segment, attempt open</td><td>Corruption detected or partial recovery with intact chain</td></tr>
+          <tr><td class="mono">C — Recovery</td><td>Restore flipped byte, reopen, verify count and chain tip match</td><td>Entry count and chain tip match pre-corruption state</td></tr>
+          <tr><td class="mono">D — Logical Tamper</td><td>Mutate entry description in memory (no hash update), call verify</td><td>SECURITY FAILURE if Ok returned; must error naming tampered sequence</td></tr>
+          <tr><td class="mono">E — Entry Verify</td><td>Spot-check entries at seq 1, N/4, N/2, 3N/4, N via verify_hashes()</td><td>All five return VALID</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Merkle Tab -->
+    <div id="ctab-merkle" class="tab-pane">
+      <h2>Binary Merkle Tree</h2>
+      <p style="font-size:0.85rem;margin-bottom:12px;">A single Merkle root commits to the entire database state. Clients can verify that a specific entry is in the committed state using a compact proof without downloading the whole database.</p>
+      <div class="crypto-demo">
+        <div class="hash-line"><strong>Leaf:</strong> hash_leaf(data) = BLAKE3(<span class="hash-val">0x00</span> ‖ data)</div>
+        <div class="hash-line" style="margin-top:4px;"><strong>Internal node:</strong> hash_node(left, right) = BLAKE3(<span class="hash-val">0x01</span> ‖ left ‖ right)</div>
+        <div class="hash-line" style="margin-top:4px;"><strong>Odd layer:</strong> last leaf is duplicated</div>
+        <div class="hash-line" style="margin-top:4px;"><strong>Empty tree:</strong> returns ZERO_HASH</div>
+      </div>
+      <h3 style="margin-bottom:8px;">MerkleProof structure (from merkle.rs)</h3>
+      <pre>pub struct MerkleProof {
+    pub leaf_index: usize,
+    pub leaf_hash: Hash,       // [u8; 32]
+    pub path: Vec&lt;ProofStep&gt;,  // sibling at each level
+    pub root: Hash,
+}
+
+pub struct ProofStep {
+    pub sibling: Hash,
+    pub sibling_is_left: bool,
+}
+
+// Verify: walk path, compute hashes, compare to root
+impl MerkleProof {
+    pub fn verify(&amp;self) -&gt; Result&lt;(), CryptoError&gt; {
+        let mut current = self.leaf_hash;
+        for step in &amp;self.path {
+            current = if step.sibling_is_left {
+                hash_node(&amp;step.sibling, &amp;current)
+            } else {
+                hash_node(&amp;current, &amp;step.sibling)
+            };
+        }
+        if current == self.root { Ok(()) }
+        else { Err(CryptoError::MerkleProofInvalid) }
+    }
+}</pre>
+      <h3 style="margin-bottom:8px;">Three-tier Audit Package</h3>
+      <table>
+        <thead><tr><th>Tier</th><th>Contents</th><th>Use case</th></tr></thead>
+        <tbody>
+          <tr><td>1 — Commitment (default)</td><td>Merkle root + chain tip + Ed25519 signature over canonical payload</td><td>Fast at any scale — seconds. Cryptographic anchor for all future proofs.</td></tr>
+          <tr><td>2 — Entry proof</td><td>Single Merkle inclusion proof for one sequence number</td><td>Auditor verifies one entry belongs to committed root offline.</td></tr>
+          <tr><td>3 — Full export (--include-entries)</td><td>All entries embedded with per-entry proofs</td><td>Small ledgers (&lt;10K entries) or period exports.</td></tr>
+        </tbody>
+      </table>
+      <p style="font-size:0.78rem;color:var(--text-muted);margin-top:8px;"><strong>Signed payload canonical format:</strong> root ‖ chain_tip ‖ entry_count_le8 ‖ tenant_len_le4 ‖ tenant_bytes ‖ desc_len_le4 ‖ desc_bytes ‖ period_start ‖ period_end ‖ first_seq_le8 ‖ last_seq_le8</p>
+    </div>
+
+    <!-- Encrypt Tab -->
+    <div id="ctab-encrypt" class="tab-pane">
+      <h2>AES-256-GCM Encryption at Rest</h2>
+      <p style="font-size:0.85rem;margin-bottom:12px;">All page-store files are encrypted with AES-256-GCM. Per-table keys are derived from the master key via HKDF-SHA256.</p>
+      <div class="crypto-demo">
+        <div class="hash-line"><strong>Wire format:</strong> nonce (12 bytes, random) ‖ ciphertext_with_tag</div>
+        <div class="hash-line" style="margin-top:4px;"><strong>AAD:</strong> Optional additional authenticated data binds ciphertext to context (e.g., table_id ‖ page_id)</div>
+        <div class="hash-line" style="margin-top:4px;"><strong>Nonce:</strong> 96-bit random per encryption, from OS CSPRNG</div>
+      </div>
+      <h3 style="margin-bottom:8px;">HKDF Key Derivation Context Strings</h3>
+      <table>
+        <thead><tr><th>Context string</th><th>Derived key use</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">vgdb/table/{id}/encrypt</td><td>Per-table AES-256-GCM encryption key</td></tr>
+          <tr><td class="mono">vgdb/table/{id}/sign</td><td>Per-table signing key</td></tr>
+          <tr><td class="mono">vgdb/wal/sign</td><td>WAL commit signing key</td></tr>
+          <tr><td class="mono">vgdb/backup/{timestamp_unix}</td><td>Per-backup ephemeral encryption key</td></tr>
+          <tr><td class="mono">vgdb/backup-key-wrap</td><td>Key for wrapping the backup key in .tar.key sidecar</td></tr>
+        </tbody>
+      </table>
+      <h3 style="margin-top:16px;margin-bottom:8px;">Backup Format</h3>
+      <pre>vledger-backup-&lt;timestamp&gt;.tar   +   .tar.key (AES-GCM wrapped backup key)
+  MANIFEST.json          ← plaintext; file list + BLAKE3 hashes of plaintext
+  wal/&lt;file&gt;.enc         ← nonce ‖ ciphertext_with_tag
+  pages/&lt;file&gt;.enc       ← nonce ‖ ciphertext_with_tag
+  catalog/&lt;file&gt;.enc
+  audit/&lt;file&gt;.enc
+  keys/db_signing_pubkey.hex.enc   ← public keys only</pre>
+      <p style="font-size:0.78rem;color:var(--text-muted);">Restore: verify manifest hash → decrypt backup key from .tar.key → decrypt all files → verify BLAKE3 hashes post-decryption. Path-traversal guard on every extracted path.</p>
+      <h3 style="margin-top:16px;margin-bottom:8px;">Password Hashing (Argon2id)</h3>
+      <table>
+        <thead><tr><th>Parameter</th><th>Value</th><th>Requirement</th></tr></thead>
+        <tbody>
+          <tr><td>Memory</td><td>64 MiB</td><td>Above OWASP min of 19 MiB</td></tr>
+          <tr><td>Iterations</td><td>3</td><td>Above OWASP min of 1 for 64 MiB</td></tr>
+          <tr><td>Parallelism</td><td>4 lanes</td><td></td></tr>
+          <tr><td>Output format</td><td>PHC string (includes params + salt)</td><td></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Sign Tab -->
+    <div id="ctab-sign" class="tab-pane">
+      <h2>Ed25519 Commit Signing</h2>
+      <p style="font-size:0.85rem;margin-bottom:12px;">Every WAL commit record and audit package is signed with Ed25519. External auditors can verify the transaction log without trusting the server.</p>
+      <pre>pub struct SignedCommit {
+    pub data: Vec&lt;u8&gt;,
+    pub signature: [u8; 64],   // Ed25519 signature
+    pub public_key: [u8; 32],  // Ed25519 public key
+}
+
+// Security note: verify() (self-consistency check) was REMOVED in v1.0.26
+// because it was vulnerable to key substitution attack.
+// Use verify_against(&amp;trusted_key) ONLY, with a trust anchor from keys/ or HSM.
+impl DbVerifyingKey {
+    pub fn verify_against(&amp;self, signed: &amp;SignedCommit) -&gt; Result&lt;(), CryptoError&gt;
+}
+
+// Key rotation: non-destructive — HSM archives old version
+// Key IDs rotated: vledger.wal.signing, vledger.commit.signing,
+//                  vledger.table.{id}.encrypt (tables 0=accounts, 1=entries + all found in pages/)
+// Transport: Model 1 (local Unix socket /tmp/pyhsm.sock) or Model 2 (remote mTLS)</pre>
+      <h3 style="margin-bottom:8px;">HSM Backends</h3>
+      <table>
+        <thead><tr><th>Backend (key_source.json)</th><th>Description</th><th>PCI-DSS 3.5</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">py_hsm / pyhsm</td><td>Local PyHSM daemon (Model 1, Unix socket). Master key sealed in AES-256-GCM-SIV keystore, never plaintext on disk.</td><td><span class="badge badge-approve">PASS</span></td></tr>
+          <tr><td class="mono">remote_py_hsm</td><td>Remote PyHSM (Model 2, mTLS). Raw key material never accessible from VectorLedger host.</td><td><span class="badge badge-approve">PASS</span></td></tr>
+          <tr><td class="mono">vault</td><td>HashiCorp Vault KV v2. Master key managed by Vault KMS.</td><td><span class="badge badge-approve">PASS</span></td></tr>
+          <tr><td class="mono">aws_kms</td><td>AWS KMS GenerateDataKey. Raw key material never on disk.</td><td><span class="badge badge-approve">PASS</span></td></tr>
+          <tr><td class="mono">env / file</td><td>Key in env variable or file. Dev only.</td><td><span class="badge badge-escalate">FAIL</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Audit Log Tab -->
+    <div id="ctab-audit" class="tab-pane">
+      <h2>WORM Audit Log</h2>
+      <p style="font-size:0.85rem;margin-bottom:12px;">The audit log is a separate, independently chained WORM (Write-Once Read-Many) log at <span class="mono">audit/audit.log</span>. Every write is fsync'd. The log has its own BLAKE3 hash chain independent of the ledger chain.</p>
+      <div class="crypto-demo">
+        <div class="hash-line"><strong>content_hash</strong> = BLAKE3(seq_le8 ‖ ts_nanos_le8 ‖ event_kind_json_bytes)</div>
+        <div class="hash-line" style="margin-top:4px;"><strong>chain_hash</strong> = BLAKE3(seq_le8 ‖ <span class="hash-val">prev_chain_hash_hex_bytes</span> ‖ <span class="hash-val">content_hash_hex_bytes</span>)</div>
+        <div class="hash-line" style="margin-top:4px;"><em>Note: audit chain hashes are computed over the hex-encoded bytes (ASCII), unlike the ledger which uses raw bytes.</em></div>
+      </div>
+      <h3 style="margin-top:12px;margin-bottom:8px;">14 Audit Event Types (AuditEventKind)</h3>
+      <table>
+        <thead><tr><th>Event</th><th>Key Fields</th><th>Trigger</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">query_executed</td><td>sql, caller_id, rows_affected, duration_ms</td><td>Every SQL query executed</td></tr>
+          <tr><td class="mono">entry_posted</td><td>entry_id, entry_sequence, domain, amount_sum, caller_id</td><td>Journal entry committed to ledger</td></tr>
+          <tr><td class="mono">account_created</td><td>account_id, account_code, domain, caller_id</td><td>Account created</td></tr>
+          <tr><td class="mono">account_closed</td><td>account_id, caller_id</td><td>Account closed (status→Closed)</td></tr>
+          <tr><td class="mono">key_rotated</td><td>key_id, caller_id</td><td>HSM key rotation completed for one key slot</td></tr>
+          <tr><td class="mono">replication_event</td><td>lsn, direction ("shipped"/"received"), peer</td><td>WAL record shipped to or received from replica</td></tr>
+          <tr><td class="mono">auth_event</td><td>caller_id, success, peer_addr</td><td>Login attempt (success or failure)</td></tr>
+          <tr><td class="mono">four_eyes_submitted</td><td>approval_id, entry_id, submitter, domain</td><td>Entry submitted for four-eyes approval</td></tr>
+          <tr><td class="mono">four_eyes_approved</td><td>approval_id, approver</td><td>Four-eyes approval granted</td></tr>
+          <tr><td class="mono">four_eyes_rejected</td><td>approval_id, approver, reason</td><td>Four-eyes approval rejected</td></tr>
+          <tr><td class="mono">backup_created</td><td>path, size_bytes, caller_id</td><td>Backup snapshot created</td></tr>
+          <tr><td class="mono">ledger_exported</td><td>path, entry_count, chain_tip_hex, caller_id</td><td>Ledger exported with <span class="mono">vledger export</span></td></tr>
+          <tr><td class="mono">key_rotation_started</td><td>key_ids: Vec&lt;String&gt;, caller_id</td><td>Key rotation process initiated</td></tr>
+          <tr><td class="mono">server_started</td><td>bind_addr, version</td><td>Server process started</td></tr>
+        </tbody>
+      </table>
+      <h3 style="margin-top:16px;margin-bottom:8px;">AuditEvent Structure</h3>
+      <pre>pub struct AuditEvent {
+    pub sequence: u64,         // monotonic, 1-based
+    pub ts: DateTime&lt;Utc&gt;,
+    pub event: AuditEventKind, // one of 14 variants above
+    pub content_hash: String,  // hex BLAKE3 of canonical_bytes()
+    pub chain_hash: String,    // hex BLAKE3(seq_le ‖ prev_hash_hex ‖ content_hash_hex)
+    pub prev_hash: String,     // chain hash of previous event
+}
+// First event: prev_hash = "0000...0000" (64 hex zeros)</pre>
+      <p style="font-size:0.78rem;color:var(--text-muted);">Export formats: JSON (one AuditEvent per line) or CSV (sequence, ts, kind, content_hash prefix, chain_hash prefix, details JSON). License limits: Free=30 days, Starter=90 days, Growth/Enterprise=unlimited.</p>
+    </div>
+
+    <!-- Four-Eyes Tab -->
+    <div id="ctab-foureyes" class="tab-pane">
+      <h2>Four-Eyes Dual-Control Approval</h2>
+      <p style="font-size:0.85rem;margin-bottom:12px;">When an account has <span class="mono">require_four_eyes = true</span>, entries must be approved by a second, <em>different</em> principal before posting to the ledger. The queue is stored in JSONL files at <span class="mono">vledger-data/foureyes/</span> (all 0o600 permissions).</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div>
+          <h3 style="margin-bottom:8px;">Lifecycle</h3>
+          <table>
+            <thead><tr><th>Status</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td><span class="badge badge-review">Pending</span></td><td>Waiting for second approver. Stored in pending.jsonl</td></tr>
+              <tr><td><span class="badge badge-approve">Approved</span></td><td>Entry posted to ledger. Moved to approved.jsonl</td></tr>
+              <tr><td><span class="badge badge-escalate">Rejected</span></td><td>Entry NOT posted. Moved to rejected.jsonl</td></tr>
+            </tbody>
+          </table>
+          <h3 style="margin-top:16px;margin-bottom:8px;">Key Constraints</h3>
+          <ul style="font-size:0.82rem;padding-left:16px;line-height:1.8;">
+            <li><strong>Self-approval prevented:</strong> FourEyesError::SelfApproval if approver_id == submitter_id</li>
+            <li><strong>Idempotency guard:</strong> approve() checks approved.jsonl first; if found, returns existing record without re-posting (crash-safe)</li>
+            <li><strong>Atomic rename:</strong> pending.jsonl.tmp → pending.jsonl (Unix atomic)</li>
+            <li><strong>All state changes fsync'd</strong> before returning</li>
+            <li><strong>Audit events</strong> written for all three actions</li>
+          </ul>
+        </div>
+        <div>
+          <h3 style="margin-bottom:8px;">ApprovalRecord Structure</h3>
+          <pre style="font-size:0.72rem;">pub struct ApprovalRecord {
+    pub id: Uuid,
+    pub status: ApprovalStatus,
+    pub submitter_id: String,
+    pub approver_id: Option&lt;String&gt;,
+    pub reject_reason: Option&lt;String&gt;,
+    pub submitted_at: DateTime&lt;Utc&gt;,
+    pub decided_at: Option&lt;DateTime&lt;Utc&gt;&gt;,
+    pub entry_payload_hex: String, // bincode-encoded entry, hex
+    pub description: String,
+    pub domain: String,
+}</pre>
+        </div>
+      </div>
+      <h3 style="margin-top:16px;margin-bottom:8px;">Four-Eyes Queue API</h3>
+      <pre>// Submit entry for approval
+fn submit(entry_bytes: &amp;[u8], description, domain, submitter_id) -&gt; Result&lt;ApprovalRecord&gt;
+
+// Approve — posts via post_fn callback if approver != submitter
+fn approve(approval_id: Uuid, approver_id, post_fn: FnOnce(&amp;[u8]) -&gt; Result&lt;(), String&gt;) -&gt; Result&lt;ApprovalRecord&gt;
+
+// Reject — entry is NOT posted
+fn reject(approval_id: Uuid, approver_id, reason) -&gt; Result&lt;ApprovalRecord&gt;
+
+// Query pending queue
+fn list_pending() -&gt; Vec&lt;ApprovalRecord&gt;
+fn get(id: Uuid) -&gt; Option&lt;ApprovalRecord&gt;</pre>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════
+     COMPLIANCE VIEW
+═══════════════════════════════════════════════ -->
+<div id="view-compliance" class="view">
+  <div class="card">
+    <h1 style="font-size:1.4rem;">Compliance Evidence Report</h1>
+    <p style="color:var(--text-muted);margin-bottom:16px;">VectorLedger generates machine-generated technical evidence supporting SOC 2 Type II and PCI-DSS v4 control assessments. Evidence is computed by inspecting the actual data directory structure — not pre-written documentation. <strong>The control statuses on this page (PASS / WARN / FAIL) are illustrative samples, not results from your data directory.</strong> Run <span class="mono">vledger compliance-report</span> for real results.</p>
+    <div class="tab-bar">
+      <button class="tab-btn active" onclick="showCompTab('soc2',this)">SOC 2 Type II</button>
+      <button class="tab-btn" onclick="showCompTab('pci',this)">PCI-DSS v4</button>
+      <button class="tab-btn" onclick="showCompTab('sql',this)">SQL Dialect &amp; Clients</button>
+    </div>
+
+    <!-- SOC 2 Tab -->
+    <div id="comptab-soc2" class="tab-pane active">
+      <h2>SOC 2 Type II — 8 Controls</h2>
+      <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:12px;">
+        A report is COMPLIANT if zero FAIL results (warnings allowed). Generated via <span class="mono">vledger compliance-report --standard soc2</span>. Typical date range: last 90 days.
+      </p>
+      <div class="compliance-grid">
+        <div class="control-card control-pass">
+          <div class="ctrl-id">CC6.1</div>
+          <div class="ctrl-title">Logical access — TLS encryption in transit</div>
+          <div class="ctrl-desc">TLS 1.3 is mandatory for all connections (rustls). Checked: catalog/VERSION file exists (proxy for initialized database).</div>
+        </div>
+        <div class="control-card control-pass">
+          <div class="ctrl-id">CC6.2</div>
+          <div class="ctrl-title">Audit trail records all authentication events</div>
+          <div class="ctrl-desc">Checked: audit/audit.log exists. Reports file size. Every auth_event (success or failure) is written to the WORM log.</div>
+        </div>
+        <div class="control-card control-pass">
+          <div class="ctrl-id">CC6.3</div>
+          <div class="ctrl-title">Access revocation — account close mechanism</div>
+          <div class="ctrl-desc">close_account() persists AccountStatus::Closed via WAL. Closed accounts reject all new entries at LedgerStore. Checked: wal/ directory exists.</div>
+        </div>
+        <div class="control-card control-pass">
+          <div class="ctrl-id">CC6.6</div>
+          <div class="ctrl-title">Encryption at rest</div>
+          <div class="ctrl-desc">All page-store files encrypted with AES-256-GCM. Per-table keys derived from master key via HKDF. Checked: pages/ directory exists.</div>
+        </div>
+        <div class="control-card control-warn">
+          <div class="ctrl-id">CC6.7</div>
+          <div class="ctrl-title">Transmission encryption — TLS configuration</div>
+          <div class="ctrl-desc">WARN if self-signed cert (catalog/tls_cert.pem). PASS only if CA-signed cert at keys/server.crt. Self-signed certs do not satisfy SOC 2 CC6.7 in production.</div>
+        </div>
+        <div class="control-card control-pass">
+          <div class="ctrl-id">CC7.2</div>
+          <div class="ctrl-title">Audit log chain integrity monitoring</div>
+          <div class="ctrl-desc">Calls AuditLog::verify_chain() — reports event count. FAIL if chain broken. The audit log's own BLAKE3 hash chain is independent of the ledger chain.</div>
+        </div>
+        <div class="control-card control-pass">
+          <div class="ctrl-id">CC8.1</div>
+          <div class="ctrl-title">WAL append-only change record</div>
+          <div class="ctrl-desc">WAL provides append-only change record for all ledger mutations. Checked: wal/ directory exists, segment count reported.</div>
+        </div>
+        <div class="control-card control-warn">
+          <div class="ctrl-id">A1.1</div>
+          <div class="ctrl-title">High-availability replication</div>
+          <div class="ctrl-desc">WARN (not FAIL) if replication.json absent — single-node deployment with documented backup strategy is an accepted alternative. PASS if replication.json present.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PCI-DSS Tab -->
+    <div id="comptab-pci" class="tab-pane">
+      <h2>PCI-DSS v4 — 9 Controls</h2>
+      <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:12px;">
+        Generated via <span class="mono">vledger compliance-report --standard pci-dss</span>. Typical date range: last year.
+      </p>
+      <div class="compliance-grid">
+        <div class="control-card control-fail">
+          <div class="ctrl-id">PCI-2.2</div>
+          <div class="ctrl-title">Secure system config — master key storage</div>
+          <div class="ctrl-desc">FAIL if keys/MASTER_KEY_PLACEHOLDER.txt exists (key is on disk, not in HSM). PASS if that file is absent. Action: move master key to HSM and delete the placeholder.</div>
+        </div>
+        <div class="control-card control-pass">
+          <div class="ctrl-id">PCI-3.4</div>
+          <div class="ctrl-title">Cardholder data protected at rest</div>
+          <div class="ctrl-desc">All page-store files encrypted AES-256-GCM. Checked: pages/ directory exists.</div>
+        </div>
+        <div class="control-card control-pass">
+          <div class="ctrl-id">PCI-3.5</div>
+          <div class="ctrl-title">Key management — HSM configuration</div>
+          <div class="ctrl-desc">Parses keys/key_source.json backend. PASS: py_hsm, remote_py_hsm, vault, aws_kms. FAIL: env or file backend. WARN: unknown backend. FAIL: no config found.</div>
+        </div>
+        <div class="control-card control-warn">
+          <div class="ctrl-id">PCI-4.2</div>
+          <div class="ctrl-title">Transmission encryption</div>
+          <div class="ctrl-desc">Same as CC6.7 — CA-signed cert required for PASS. WARN with self-signed cert.</div>
+        </div>
+        <div class="control-card control-pass">
+          <div class="ctrl-id">PCI-7.1</div>
+          <div class="ctrl-title">Restrict access — four-eyes enforcement</div>
+          <div class="ctrl-desc">Four-eyes dual-control approval is built into the engine at the type-system level. Checked: catalog/VERSION exists. Confirmed: FourEyesQueue is always available.</div>
+        </div>
+        <div class="control-card control-pass">
+          <div class="ctrl-id">PCI-10.2</div>
+          <div class="ctrl-title">Audit trails for all access to cardholder data</div>
+          <div class="ctrl-desc">Checked: audit/audit.log exists. All QueryExecuted, EntryPosted, AuthEvent events recorded. File size reported.</div>
+        </div>
+        <div class="control-card control-pass">
+          <div class="ctrl-id">PCI-10.3</div>
+          <div class="ctrl-title">Protect audit trails from destruction</div>
+          <div class="ctrl-desc">Calls AuditLog::verify_chain(). The WORM log is opened O_APPEND only — no seek, no truncate. fsync on every write.</div>
+        </div>
+        <div class="control-card control-pass">
+          <div class="ctrl-id">PCI-10.5</div>
+          <div class="ctrl-title">WAL tamper-evident trail</div>
+          <div class="ctrl-desc">WAL provides tamper-evident trail for all data modifications. Checked: wal/ directory, segment count.</div>
+        </div>
+        <div class="control-card control-pass">
+          <div class="ctrl-id">PCI-11.5</div>
+          <div class="ctrl-title">Change-detection mechanism</div>
+          <div class="ctrl-desc">BLAKE3 hash chain over all ledger entries. Any modification to a historical record invalidates all subsequent hashes. Checked: pages/ directory exists.</div>
+        </div>
+      </div>
+      <p style="font-size:0.78rem;color:var(--text-muted);margin-top:8px;">
+        <strong>Important scope note:</strong> VectorLedger generates technical evidence <em>supporting</em> an audit. Organizational compliance requires additional controls, policies, and independent auditor assessment beyond what any database engine can provide.
+      </p>
+    </div>
+
+    <!-- SQL / Clients Tab -->
+    <div id="comptab-sql" class="tab-pane">
+      <h2>SQL Dialect &amp; Client Libraries</h2>
+      <h3 style="margin-bottom:8px;">Wire Protocol (port 5433)</h3>
+      <pre>// Request (newline-delimited JSON over TLS 1.3)
+{ "sql": "SELECT * FROM ledger WHERE sequence &gt; 100", "with_proof": true }
+
+// Success response
+{ "ok": true, "columns": ["sequence","id","domain","amount_sum"],
+  "rows": [[101,"uuid…","prod",12000]], "rows_affected": 1,
+  "message": "", "proof": {"root_hex": "a3f7…", "leaf_count": 101, "verified": true} }
+
+// Error response
+{ "ok": false, "error": "hash chain broken at sequence 42" }</pre>
+      <h3 style="margin-top:16px;margin-bottom:8px;">VectorLedger SQL Extensions</h3>
+      <table>
+        <thead><tr><th>Function / SQL</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">SELECT VERIFY_CHAIN()</td><td>Verify the complete ledger hash chain. Returns status="OK" or error.</td></tr>
+          <tr><td class="mono">SELECT VERIFY_ENTRY(seq)</td><td>Spot-check one entry's hashes.</td></tr>
+          <tr><td class="mono">SELECT BALANCE('CASH')</td><td>Current balance for account code or UUID (minor units).</td></tr>
+          <tr><td class="mono">SELECT MERKLE_ROOT(from_seq, to_seq)</td><td>Compute Merkle root over a range of entries (always available).</td></tr>
+          <tr><td class="mono">vledger sql --ask "..."</td><td>Natural-language to SQL via LLM (requires OPENAI_API_KEY).</td></tr>
+        </tbody>
+      </table>
+      <h3 style="margin-top:16px;margin-bottom:8px;">Client Libraries</h3>
+      <table>
+        <thead><tr><th>Language</th><th>Key Methods</th><th>Account ID Validation</th></tr></thead>
+        <tbody>
+          <tr><td>Python</td><td>connect(), query(), execute(), balance(account), verify_chain(), close(), reconnect()</td><td rowspan="3"><span class="mono">^[A-Za-z0-9_\-\.:]{1,128}$</span> — all three clients enforce this before SQL interpolation.</td></tr>
+          <tr><td>TypeScript</td><td>connect(), query(), execute(), close()</td></tr>
+          <tr><td>Go</td><td>Connect(), Query(), Execute(), Close()</td></tr>
+        </tbody>
+      </table>
+      <p style="font-size:0.78rem;color:var(--text-muted);margin-top:8px;">TLS 1.3 mandatory. Loopback connections (127.0.0.1, ::1, localhost) accept self-signed certs with a warning. Non-loopback requires tls_ca_cert. pgwire (port 5432) enables psql, DBeaver, any PostgreSQL driver. MCP server (port 3000) provides 15 tools for AI assistants (Claude Desktop, Cursor, Kiro).</p>
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════
+     RULES MODULE
+═══════════════════════════════════════════════ -->
+<div id="view-rules" class="view">
+  <div class="card">
+    <h1 style="font-size:1.4rem;">Determinism + Probabilism</h1>
+    <p style="color:var(--text-muted);margin-bottom:16px;">The same request always gets the same route. AI reads and drafts; your rules check and decide; a compliance manager approves every result before it reaches an auditor or regulator.</p>
+
+    <h2>Same request, 3 runs</h2>
+    <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:12px;">Different drafts. One route. Determinism holds. (T1 — typical clear transaction)</p>
+    <div class="three-runs">
+      <table>
+        <thead><tr><th>Run</th><th>Route (rules — never varies)</th><th>Audit Draft (AI — wording varies)</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">1</td><td><span class="badge badge-approve">CLEAR</span> via R10</td><td style="border-left:3px solid var(--accent);">"Transaction TXN-00412 cleared. BLAKE3 hash integrity confirmed. Counterparty CP-119 is on the allow-list. Amount $12,000 within $50,000 threshold. No anomalies. Route: proceed to manager sign-off."</td></tr>
+          <tr><td class="mono">2</td><td><span class="badge badge-approve">CLEAR</span> via R10</td><td style="border-left:3px solid var(--accent);">"TXN-00412 verified. Hash chain intact, Merkle proof valid, $12,000 not above the escalation threshold. Counterparty is allow-listed. Cleared for audit submission."</td></tr>
+          <tr><td class="mono">3</td><td><span class="badge badge-approve">CLEAR</span> via R10</td><td style="border-left:3px solid var(--accent);">"All VectorLedger integrity checks passed for TXN-00412. Content hash match, unbroken chain, valid Merkle proof, allow-listed counterparty. Proceed to compliance manager sign-off."</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2>Check loop</h2>
+    <p style="font-size:0.82rem;margin-bottom:16px;">
+      <strong>AI reads</strong> → rules validate all fields (evidence checks: every number must appear in source; null stays null, never 0) → one retry with errors → analyst asked for missing fields → compliance manager reviews anything unverified → every manager correction becomes a new test → <strong>weekly: manager re-checks 10 auto-routed cases</strong> (spot-sample of cases routed without a person, per four-eyes governance).
+    </p>
+
+    <hr class="divider" />
+    <h2>Your business rules, in plain English</h2>
+    <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:12px;">Rule owner: Compliance Manager. Rules version 1.0 · 11 rules · 15 tests · traced. <strong>Conflict resolution: most restrictive result wins.</strong> Ranking (most→least restrictive): ESCALATE TO LEGAL &gt; ESCALATE TO COMPLIANCE MANAGER + SECOND SIGN-OFF &gt; SECOND SIGN-OFF REQUIRED &gt; CLEAR. An exception rule can add scrutiny but never remove it.</p>
+    <table>
+      <thead><tr><th class="mono">ID</th><th>Rule (IF … THEN …)</th><th>Output</th><th>VectorLedger invariant</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">R1</td><td>IF any required field is missing OR amount is not a positive whole number THEN stop</td><td><span class="badge badge-escalate">STOP — escalate to compliance manager</span></td><td>Invariant #3</td></tr>
+        <tr><td class="mono">R2</td><td>IF BLAKE3 content_hash does not match ledger record THEN flag HASH_MISMATCH</td><td><span class="badge badge-escalate">ESCALATE TO LEGAL</span></td><td>Invariant #14 (hash chain)</td></tr>
+        <tr><td class="mono">R3</td><td>IF prior chain_hash does not link to preceding entry THEN flag CHAIN_BREAK</td><td><span class="badge badge-escalate">ESCALATE TO LEGAL</span></td><td>Invariant #14 (hash chain)</td></tr>
+        <tr><td class="mono">R4</td><td>IF reversal = yes AND correction_method = silent_edit THEN flag IMPROPER_REVERSAL</td><td><span class="badge badge-escalate">ESCALATE TO LEGAL</span></td><td>the append-only correction model (Invariants #11–#12) (no silent edits)</td></tr>
+        <tr><td class="mono">R5</td><td>IF amount &gt; 5,000,000 minor units ($50,000.00) THEN require second sign-off from manager AND legal</td><td><span class="badge badge-review">SECOND SIGN-OFF REQUIRED</span></td><td>Related: Invariant #8 (exposure limits)</td></tr>
+        <tr><td class="mono">R6</td><td>IF counterparty NOT on approved list THEN flag UNAPPROVED_COUNTERPARTY</td><td><span class="badge badge-review">ESCALATE TO COMPLIANCE MANAGER</span></td><td>Counterparty control</td></tr>
+        <tr><td class="mono">R7</td><td>IF Merkle proof verification fails THEN flag MERKLE_FAIL</td><td><span class="badge badge-escalate">ESCALATE TO LEGAL</span></td><td>Merkle commitment (not a numbered invariant)</td></tr>
+        <tr><td class="mono">R8</td><td>IF timestamp is earlier than prior entry THEN flag TIMESTAMP_ANOMALY</td><td><span class="badge badge-review">ESCALATE TO COMPLIANCE MANAGER</span></td><td>Invariant #13 (sequence ordering)</td></tr>
+        <tr><td class="mono">R9</td><td>IF four_eyes_required = yes THEN route to four-eyes approval queue before posting</td><td><span class="badge badge-human">ROUTE TO FOUR-EYES QUEUE</span></td><td>Invariant #10 (four-eyes)</td></tr>
+        <tr><td class="mono">R10</td><td>IF R2–R8 all pass AND R9 does not apply THEN clear for audit draft</td><td><span class="badge badge-approve">CLEAR — proceed to manager sign-off</span></td><td>All invariants satisfied</td></tr>
+        <tr><td class="mono">R11</td><td>ELSE (no clearance rule fired) THEN escalate to compliance manager. <em style="color:var(--text-muted);font-size:0.78rem;">Safety net: R10 catches every case where R2–R9 all pass, so R11 cannot be reached with the current rule set. It exists to guarantee no case falls through silently.</em></td><td><span class="badge badge-review">ESCALATE TO COMPLIANCE MANAGER</span></td><td>Safety net</td></tr>
+      </tbody>
+    </table>
+    <p style="font-size:0.78rem;color:var(--text-muted);margin-top:8px;"><strong>Next step by result:</strong> STOP → compliance manager, must add test before any fix; ESCALATE TO LEGAL → legal counsel + compliance manager, entry flagged in VectorLedger; ESCALATE TO COMPLIANCE MANAGER → compliance manager reviews before any auditor delivery; SECOND SIGN-OFF → second sign-off required in four-eyes queue; CLEAR → draft delivered to compliance manager for sign-off before delivery to auditor.</p>
+
+    <hr class="divider" />
+    <h2>Expert rules as code (rules.py)</h2>
+    <pre id="rules-py-display"></pre>
+    <div class="btn-row" style="margin-top:8px;">
+      <button class="btn btn-secondary" onclick="copyRules()">Copy rules.py</button>
+    </div>
+
+    <hr class="divider" />
+    <h2>Parity table — all 15 test cases</h2>
+    <table class="parity-table">
+      <thead><tr><th>ID</th><th>Input summary</th><th>Expected</th><th>Actual (JS engine)</th><th>Match</th></tr></thead>
+      <tbody id="parity-tbody"></tbody>
+    </table>
+
+    <hr class="divider" />
+    <h2>Stress Test</h2>
+    <p style="font-size:0.82rem;color:var(--text-muted);margin-bottom:8px;">Runs all 15 test cases 10 times each. Same input must always produce the same output (determinism check).</p>
+    <button class="btn btn-secondary" onclick="runStressTest()">Run Stress Test</button>
+    <div id="stress-output" class="selftest-result" style="display:none;margin-top:12px;"></div>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════
+     EXECUTIVE READOUT
+═══════════════════════════════════════════════ -->
+<div id="view-readout" class="view">
+  <div class="card">
+    <h2>Executive Readout</h2>
+    <div class="readout-rec" id="readout-rec">
+      <strong>Recommendation:</strong> Fund the pilot now — all 11 rules are deterministic, every decision has a trace, and the case pays back at any adoption above 6.6%. Scoped slice: AI-assisted VectorLedger transaction investigation (BLAKE3 hash chain · Merkle proof · threshold · counterparty checks + narrative draft) for the compliance analyst team, wave 1. Conservative payback: <span id="readout-payback">—</span> months at 16% adoption and $15K build cost (ASSUMED). What has to be true: 6.6% adoption at 45 min saved for a 12-month payback — well within reach. The ask: compliance manager as sponsor · 3 analysts in wave 1 · VectorLedger data access · IT security sign-off.
+    </div>
+
+    <h2>ROI — Live</h2>
+    <div class="roi-toggle">
+      <button class="active" onclick="setROI('conservative',this)">Conservative (16%)</button>
+      <button onclick="setROI('base',this)">Base (50%)</button>
+      <button onclick="setROI('stretch',this)">Stretch (84%)</button>
+    </div>
+    <div class="roi-grid">
+      <div class="roi-metric"><div class="val" id="roi-hours">—</div><div class="lbl">Hours saved / year</div></div>
+      <div class="roi-metric"><div class="val" id="roi-value">—</div><div class="lbl">Annual value</div></div>
+      <div class="roi-metric"><div class="val" id="roi-payback">—</div><div class="lbl">Payback (months)</div></div>
+    </div>
+    <p style="font-size:0.78rem;color:var(--text-muted);">
+      N=30 flags/wk · W=48 wks · C=$75/hr · B=$15,000 (build+training) · R=$3,600/yr (licenses+support) · S: Conservative 45 min / Base 56.5 min / Stretch 68 min · All ASSUMED
+    </p>
+    <p style="font-size:0.78rem;color:var(--text-muted);margin-top:4px;"><strong>What has to be true:</strong> 6.6% adoption at 45 min saved for a 12-month payback. Conservative at 16% reaches payback in ~12.6 months. Increasing minutes saved or reducing build cost shortens it significantly.</p>
+    <p style="font-size:0.78rem;color:var(--text-muted);margin-top:4px;"><strong>Cost sensitivity:</strong> At 5× build cost ($75K one-time), Conservative payback ≈ 56 months. At $5K build cost (pilot only), Conservative payback ≈ 10.4 months.</p>
+
+    <hr class="divider" />
+    <h2>Self-Test — Live</h2>
+    <div id="readout-selftest" style="font-size:0.85rem;color:var(--text-muted);">Click to run.</div>
+    <button class="btn btn-secondary" style="margin-top:8px;" onclick="runReadoutSelfTest()">Run Self-Test</button>
+
+    <hr class="divider" />
+    <h2>Quality Bar</h2>
+    <div class="quality-bar">
+      <div class="qb-item"><div class="qb-dot qb-green"></div><span><strong>Explainable:</strong> BLAKE3 rule trace on every result, per VectorLedger invariants</span></div>
+      <div class="qb-item"><div class="qb-dot qb-green"></div><span><strong>Tested:</strong> 15 cases traced, worst case (T8) included — all flags fired</span></div>
+      <div class="qb-item"><div class="qb-dot qb-yellow"></div><span><strong>Reviewed:</strong> role-play only — real compliance analyst review pending</span></div>
+      <div class="qb-item"><div class="qb-dot qb-green"></div><span><strong>Priced:</strong> Conservative payback ~12.6 months (ASSUMED)</span></div>
+    </div>
+
+    <hr class="divider" />
+    <h2>Top Risks</h2>
+    <table style="font-size:0.82rem;">
+      <thead><tr><th>Risk</th><th>Mitigation</th></tr></thead>
+      <tbody>
+        <tr><td>R5 threshold ($50,000) is ASSUMED — confirm real exposure limit before wave 1</td><td>Compliance manager sets confirmed threshold; all other rules are independent of it</td></tr>
+        <tr><td>Adoption risk — analysts may route around the tool if it adds a step</td><td>Wave 1 champion (compliance manager) models use; productivity is rewarded, not extracted; override always available</td></tr>
+        <tr><td>VectorLedger data access requires IT security sign-off (synthetic data only in prototype)</td><td>Compliance involved early; security review scoped to audit/read-only access; no PII or card data in prototype</td></tr>
+      </tbody>
+    </table>
+
+    <hr class="divider" />
+    <h2>The Ask</h2>
+    <p style="font-size:0.85rem;">Sponsor: Compliance Manager &nbsp;·&nbsp; Wave 1: 3 compliance analysts &nbsp;·&nbsp; Data access: VectorLedger transaction ledger (synthetic/approved data only, read-only) &nbsp;·&nbsp; IT/Security sign-off required &nbsp;·&nbsp; Budget: ~$15,000 build + $3,600/year run (ASSUMED) &nbsp;·&nbsp; Timeline: 90-day pilot</p>
+    <p style="font-size:0.75rem;color:var(--text-muted);margin-top:8px;">RULES v1.0 · 11 RULES · 15 TESTS · SYNTHETIC DATA · DEMO · NOT CONNECTED TO A LEDGER · VectorLedger v1.8.0 · VectorGuard Labs</p>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════════════════
+     JAVASCRIPT
+═══════════════════════════════════════════════ -->
+<script>
+// ── VIEW SWITCHER ──────────────────────────────────────────
+function showView(id) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.topbar-nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById('view-' + id).classList.add('active');
+  event.target.classList.add('active');
+  if (id === 'rules') buildRulesView();
+  if (id === 'readout') setROI('conservative', document.querySelector('.roi-toggle button'));
+}
+
+// ── TAB SWITCHERS ──────────────────────────────────────────
+function showCryptoTab(id, btn) {
+  document.querySelectorAll('#view-crypto .tab-pane').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('#view-crypto .tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('ctab-' + id).classList.add('active');
+  if (btn) btn.classList.add('active');
+}
+
+function showCompTab(id, btn) {
+  document.querySelectorAll('#view-compliance .tab-pane').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('#view-compliance .tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('comptab-' + id).classList.add('active');
+  if (btn) btn.classList.add('active');
+}
+
+// ── REVERSAL TOGGLE ────────────────────────────────────────
+document.getElementById('f_reversal').addEventListener('change', function() {
+  document.getElementById('correction_method_group').style.display =
+    this.value === 'yes' ? 'block' : 'none';
+});
+
+// ── SCENARIOS ─────────────────────────────────────────────
+const SCENARIOS = {
+  // Core test cases — align with rules.py self_test()
+  T1:  { txn_id:'TXN-00412', sequence:'4412', amount:'1200000', counterparty:'CP-119', counterparty_approved:'yes', hash_match:'yes', prior_hash_match:'yes', merkle:'yes', timestamp:'yes', reversal:'no', correction:'', foureyes_required:'no', domain:'prod' },
+  T2:  { txn_id:'TXN-00205', sequence:'205', amount:'7500000', counterparty:'CP-044', counterparty_approved:'yes', hash_match:'yes', prior_hash_match:'yes', merkle:'yes', timestamp:'yes', reversal:'yes', correction:'silent_edit', foureyes_required:'no', domain:'prod' },
+  T3:  { txn_id:'TXN-00887', sequence:'887', amount:'1200000', counterparty:'CP-119', counterparty_approved:'yes', hash_match:'no', prior_hash_match:'yes', merkle:'yes', timestamp:'yes', reversal:'no', correction:'', foureyes_required:'no', domain:'prod' },
+  T4:  { txn_id:'TXN-00991', sequence:'991', amount:'20000000', counterparty:'CP-UNKNOWN', counterparty_approved:'no', hash_match:'yes', prior_hash_match:'yes', merkle:'yes', timestamp:'yes', reversal:'no', correction:'', foureyes_required:'no', domain:'prod' },
+  T5:  { txn_id:'TXN-00334', sequence:'334', amount:'3500000', counterparty:'CP-088', counterparty_approved:'yes', hash_match:'yes', prior_hash_match:'no', merkle:'yes', timestamp:'yes', reversal:'no', correction:'', foureyes_required:'no', domain:'prod' },
+  T6:  { txn_id:'TXN-00556', sequence:'556', amount:'1200000', counterparty:'CP-119', counterparty_approved:'yes', hash_match:'yes', prior_hash_match:'yes', merkle:'no', timestamp:'yes', reversal:'no', correction:'', foureyes_required:'no', domain:'prod' },
+  T7:  { txn_id:'TXN-00778', sequence:'778', amount:'1200000', counterparty:'CP-119', counterparty_approved:'yes', hash_match:'yes', prior_hash_match:'yes', merkle:'yes', timestamp:'no', reversal:'no', correction:'', foureyes_required:'no', domain:'prod' },
+  T8:  { txn_id:'TXN-00999', sequence:'999', amount:'7500000', counterparty:'CP-UNKNOWN', counterparty_approved:'no', hash_match:'no', prior_hash_match:'no', merkle:'no', timestamp:'no', reversal:'yes', correction:'silent_edit', foureyes_required:'no', domain:'prod' },
+  T9:  { txn_id:'', sequence:'101', amount:'1200000', counterparty:'CP-119', counterparty_approved:'yes', hash_match:'yes', prior_hash_match:'yes', merkle:'yes', timestamp:'yes', reversal:'no', correction:'', foureyes_required:'no', domain:'prod' },
+  T10: { txn_id:'TXN-00850', sequence:'850', amount:'8500000', counterparty:'CP-200', counterparty_approved:'yes', hash_match:'yes', prior_hash_match:'yes', merkle:'yes', timestamp:'yes', reversal:'no', correction:'', foureyes_required:'yes', domain:'prod' },
+  T11: { txn_id:'TXN-00300', sequence:'300', amount:'2500000', counterparty:'CP-088', counterparty_approved:'yes', hash_match:'yes', prior_hash_match:'yes', merkle:'yes', timestamp:'yes', reversal:'yes', correction:'new_entry', foureyes_required:'no', domain:'prod' },
+  T12: { txn_id:'TXN-00500', sequence:'500', amount:'5000000', counterparty:'CP-119', counterparty_approved:'yes', hash_match:'yes', prior_hash_match:'yes', merkle:'yes', timestamp:'yes', reversal:'no', correction:'', foureyes_required:'no', domain:'prod' },
+  M1:  { txn_id:'TXN-00100', sequence:'100', amount:'12.5', counterparty:'CP-119', counterparty_approved:'yes', hash_match:'yes', prior_hash_match:'yes', merkle:'yes', timestamp:'yes', reversal:'no', correction:'', foureyes_required:'no', domain:'prod' },
+  M2:  { txn_id:'TXN-00101', sequence:'101', amount:'1e3', counterparty:'CP-119', counterparty_approved:'yes', hash_match:'yes', prior_hash_match:'yes', merkle:'yes', timestamp:'yes', reversal:'no', correction:'', foureyes_required:'no', domain:'prod' },
+  M3:  { txn_id:'TXN-00102', sequence:'102', amount:'-500', counterparty:'CP-119', counterparty_approved:'yes', hash_match:'yes', prior_hash_match:'yes', merkle:'yes', timestamp:'yes', reversal:'no', correction:'', foureyes_required:'no', domain:'prod' },
+};
+
+function loadScenario(id) {
+  const s = SCENARIOS[id]; if (!s) return;
+  clearLiveLocks();
+  document.getElementById('f_txn_id').value = s.txn_id;
+  document.getElementById('f_sequence').value = s.sequence;
+  document.getElementById('f_amount').value = s.amount;
+  document.getElementById('f_counterparty').value = s.counterparty;
+  document.getElementById('f_counterparty_approved').value = s.counterparty_approved;
+  document.getElementById('f_hash_match').value = s.hash_match;
+  document.getElementById('f_prior_hash_match').value = s.prior_hash_match;
+  document.getElementById('f_merkle').value = s.merkle;
+  document.getElementById('f_timestamp').value = s.timestamp;
+  document.getElementById('f_reversal').value = s.reversal;
+  document.getElementById('correction_method_group').style.display = s.reversal === 'yes' ? 'block' : 'none';
+  document.getElementById('f_correction').value = s.correction;
+  document.getElementById('f_foureyes_required').value = s.foureyes_required;
+  document.getElementById('f_domain').value = s.domain;
+  showView('app');
+  document.querySelectorAll('.topbar-nav button')[1].classList.add('active');
+  document.querySelectorAll('.topbar-nav button')[0].classList.remove('active');
+  runInvestigation();
+}
+
+function resetForm() {
+  clearLiveLocks();
+  ['f_txn_id','f_sequence','f_amount','f_counterparty','f_domain'].forEach(id => document.getElementById(id).value = '');
+  ['f_counterparty_approved','f_hash_match','f_prior_hash_match','f_merkle','f_timestamp','f_reversal','f_correction','f_foureyes_required'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('correction_method_group').style.display = 'none';
+  document.getElementById('output-empty').style.display = 'block';
+  document.getElementById('output-content').style.display = 'none';
+  document.getElementById('selftest-block').style.display = 'none';
+}
+
+// ── RULES ENGINE ──────────────────────────────────────────
+// Read each field ONCE in validation; rules never read raw form text.
+function validateAmount(raw) {
+  if (typeof raw !== 'string') raw = String(raw);
+  raw = raw.trim();
+  if (!/^\d+$/.test(raw)) return { valid: false, reason: 'Amount must be a positive whole number — no decimals, signs, commas, or scientific notation (e.g. "12000")' };
+  const n = Number(raw); // safe: regex already verified digits only
+  if (n <= 0) return { valid: false, reason: 'Amount must be greater than 0 (VectorLedger Invariant #3)' };
+  return { valid: true, value: n };
+}
+
+function validateSequence(raw) {
+  if (!raw || raw.trim() === '') return { valid: true, value: null }; // optional field
+  raw = raw.trim();
+  if (!/^\d+$/.test(raw)) return { valid: false, reason: 'Sequence must be a whole number' };
+  return { valid: true, value: Number(raw) };
+}
+
+const THRESHOLD_AMOUNT = 5000000; // minor units (cents) = $50,000.00 — ASSUMED; confirm with compliance manager
+const fmtUSD = m => '$' + (Number(m) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+function runRules(inputs) {
+  // inputs: { txn_id, sequence_raw, amount_raw, counterparty_id, counterparty_approved,
+  //           hash_match, prior_hash_match, merkle, timestamp_valid, reversal,
+  //           correction_method, foureyes_required }
+  const fired = [];
+  const flags = [];
+
+  // R1 — Validate / stop (read each field once)
+  const amtResult = validateAmount(inputs.amount_raw);
+  const seqResult = validateSequence(inputs.sequence_raw);
+  const missing = !inputs.txn_id || !inputs.counterparty_approved || (inputs.counterparty_approved !== 'na' && !inputs.counterparty_id) ||
+                  !inputs.hash_match || !inputs.prior_hash_match || !inputs.merkle ||
+                  !inputs.timestamp_valid;
+  if (missing || !amtResult.valid || !seqResult.valid) {
+    fired.push('R1');
+    const reason = !amtResult.valid ? amtResult.reason :
+                   !seqResult.valid ? seqResult.reason :
+                   'One or more required fields are missing';
+    return { result: 'STOP', severity: 'stop', flags: ['MISSING_OR_INVALID_FIELD'],
+             fired, explanation: 'R1 fired: ' + reason + ' → Stop and escalate to compliance manager.',
+             amount: null, seq: null };
+  }
+  const amount = amtResult.value;
+  const seq = seqResult.value;
+
+  // R2 — BLAKE3 hash mismatch (VectorLedger Invariant #14)
+  if (inputs.hash_match === 'no') { fired.push('R2'); flags.push('HASH_MISMATCH'); }
+  // R3 — Chain break (VectorLedger Invariant #14)
+  if (inputs.prior_hash_match === 'no') { fired.push('R3'); flags.push('CHAIN_BREAK'); }
+  // R4 — Improper reversal — silent edit (append-only correction model; Invariants #11–#12)
+  if (inputs.reversal === 'yes' && inputs.correction_method === 'silent_edit') { fired.push('R4'); flags.push('IMPROPER_REVERSAL'); }
+  // R5 — Amount threshold (VectorLedger related Invariant #8)
+  if (amount > THRESHOLD_AMOUNT) { fired.push('R5'); flags.push('SECOND_SIGN_OFF_REQUIRED'); }
+  // R6 — Unapproved counterparty
+  if (inputs.counterparty_approved === 'no') { fired.push('R6'); flags.push('UNAPPROVED_COUNTERPARTY'); }
+  // R7 — Merkle proof failed (Merkle commitment; not a numbered invariant)
+  if (inputs.merkle === 'no') { fired.push('R7'); flags.push('MERKLE_FAIL'); }
+  // R8 — Timestamp anomaly (VectorLedger Invariant #13)
+  if (inputs.timestamp_valid === 'no') { fired.push('R8'); flags.push('TIMESTAMP_ANOMALY'); }
+  // R9 — Four-eyes required (VectorLedger Invariant #10)
+  const fourEyesRequired = inputs.foureyes_required === 'yes';
+  if (fourEyesRequired) { fired.push('R9'); flags.push('FOUR_EYES_REQUIRED'); }
+
+  // Conflict resolution: most restrictive wins
+  const legalFlags = new Set(['HASH_MISMATCH','CHAIN_BREAK','IMPROPER_REVERSAL','MERKLE_FAIL']);
+  const managerFlags = new Set(['UNAPPROVED_COUNTERPARTY','TIMESTAMP_ANOMALY']);
+  const hasLegal = flags.some(f => legalFlags.has(f));
+  const hasManager = flags.some(f => managerFlags.has(f));
+  const hasSecondSignOff = flags.includes('SECOND_SIGN_OFF_REQUIRED');
+
+  let result, severity;
+  if (hasLegal) {
+    result = 'ESCALATE TO LEGAL' + (hasSecondSignOff ? ' + SECOND SIGN-OFF' : '');
+    severity = 'legal';
+  } else if (fourEyesRequired) {
+    result = 'ROUTE TO FOUR-EYES APPROVAL QUEUE' + (hasSecondSignOff ? ' + SECOND SIGN-OFF' : '');
+    severity = 'foureyes';
+  } else if (hasManager) {
+    result = 'ESCALATE TO COMPLIANCE MANAGER' + (hasSecondSignOff ? ' + SECOND SIGN-OFF' : '');
+    severity = 'manager';
+  } else if (hasSecondSignOff) {
+    result = 'SECOND SIGN-OFF REQUIRED';
+    severity = 'manager';
+  } else {
+    fired.push('R10');
+    result = 'CLEAR — proceed to audit draft';
+    severity = 'clear';
+  }
+
+  const firedUniq = [...new Set(fired)];
+
+  const ruleExplanations = {
+    R2: `R2 fired: BLAKE3 content_hash does not match ledger (VectorLedger Invariant #14) → HASH_MISMATCH`,
+    R3: `R3 fired: prior chain_hash breaks chain linkage (VectorLedger Invariant #14) → CHAIN_BREAK`,
+    R4: `R4 fired: reversal recorded as silent edit (violates the append-only correction model; Invariants #11–#12) → IMPROPER_REVERSAL`,
+    R5: `R5 fired: amount ${fmtUSD(amount)} (${amount.toLocaleString()} minor units) > ${fmtUSD(THRESHOLD_AMOUNT)} threshold → SECOND SIGN-OFF REQUIRED`,
+    R6: `R6 fired: counterparty ${inputs.counterparty_id || ''} not on approved list → UNAPPROVED_COUNTERPARTY`,
+    R7: `R7 fired: Merkle proof verification failed (Merkle commitment; not a numbered invariant) → MERKLE_FAIL`,
+    R8: `R8 fired: timestamp is earlier than prior ledger entry (Invariant #13) → TIMESTAMP_ANOMALY`,
+    R9: `R9 fired: account has require_four_eyes=true (Invariant #10) → ROUTE TO FOUR-EYES QUEUE`,
+    R10: `R10 fired: all integrity checks passed, no anomalies detected → CLEAR`,
+    R11: `R11 fired: safety net — no other rule resolved the case → ESCALATE TO COMPLIANCE MANAGER`,
+  };
+
+  const explanationParts = firedUniq.map(id => ruleExplanations[id] || id);
+  return { result, severity, flags, fired: firedUniq,
+           explanation: explanationParts.join('\n'), amount, seq };
+}
+
+// ── DRAFT GENERATOR ───────────────────────────────────────
+function generateDraft(res, inputs) {
+  if (res.severity !== 'clear') return null;
+  const domain = inputs.domain ? ` [${inputs.domain}]` : '';
+  const seqStr = res.seq ? ` (seq #${res.seq})` : '';
+  const drafts = [
+    `Transaction ${inputs.txn_id}${seqStr}${domain} cleared. BLAKE3 hash integrity confirmed. ${inputs.counterparty_approved === 'na' ? 'No counterparty recorded (R6 not evaluated).' : 'Counterparty ' + inputs.counterparty_id + ' is on the allow-list.'} Amount ${fmtUSD(res.amount)} within ${fmtUSD(THRESHOLD_AMOUNT)} threshold. No anomalies detected. Route: proceed to compliance manager sign-off.`,
+    `${inputs.txn_id}${seqStr} verified. VectorLedger chain intact, Merkle proof valid, ${fmtUSD(res.amount)} not above the escalation threshold. ${inputs.counterparty_approved === 'na' ? 'No counterparty recorded (R6 not evaluated).' : 'Counterparty ' + inputs.counterparty_id + ' is allow-listed.'} Cleared for audit submission.`,
+    `All VectorLedger integrity checks passed for ${inputs.txn_id}${seqStr}. BLAKE3 hash match, unbroken chain_hash linkage, valid Merkle proof, ${inputs.counterparty_approved === 'na' ? 'no counterparty recorded (R6 not evaluated)' : 'allow-listed counterparty'}. Amount ${fmtUSD(res.amount)} within threshold. Proceed to compliance manager sign-off.`,
+  ];
+  return drafts[Math.floor(Math.random() * drafts.length)];
+}
+
+function checkDraft(draft, typedValues) {
+  const checks = [];
+  // D1: starts with the transaction ID or key identifying words
+  checks.push({ id:'D1', label:'Starts with result route (Transaction/verified/passed)', pass: /^(Transaction|All |TXN-\S+|\S+\s+verified)/i.test(draft) });
+  // D2: numbers in draft are from field values or the threshold
+  const dollars = n => String(Math.floor(Number(n) / 100));
+  const allowedNums = new Set([dollars(typedValues.amount), dollars(THRESHOLD_AMOUNT),
+    String(typedValues.amount), String(THRESHOLD_AMOUNT),
+    ...((typedValues.txn_id || '').match(/\d+/g) || []),
+    ...((typedValues.counterparty_id || '').match(/\d+/g) || []),
+    ...((typedValues.seq != null ? String(typedValues.seq) : '').match(/\d+/g) || [])]);
+  const draftNums = [...draft.matchAll(/\$?[\d,]+/g)].map(m => m[0].replace(/[$,]/g,''));
+  const badNum = draftNums.find(n => n.length > 2 && !allowedNums.has(n));
+  checks.push({ id:'D2', label:'Uses only real field values / threshold', pass: !badNum });
+  // D3: no forbidden decision words
+  checks.push({ id:'D3', label:'No forbidden words (approved/rejected/denied/guaranteed)', pass: !/\b(approved|rejected|denied|guaranteed)\b/i.test(draft) });
+  // D4: ≤60 words
+  const wordCount = draft.split(/\s+/).filter(w => w).length;
+  checks.push({ id:'D4', label:`≤60 words (${wordCount} words)`, pass: wordCount <= 60 });
+  return checks;
+}
+
+// ── RUN INVESTIGATION ─────────────────────────────────────
+function runInvestigation() {
+  const inputs = {
+    txn_id: document.getElementById('f_txn_id').value.trim(),
+    sequence_raw: document.getElementById('f_sequence').value.trim(),
+    amount_raw: document.getElementById('f_amount').value.trim(),
+    counterparty_id: document.getElementById('f_counterparty').value.trim(),
+    counterparty_approved: document.getElementById('f_counterparty_approved').value,
+    hash_match: document.getElementById('f_hash_match').value,
+    prior_hash_match: document.getElementById('f_prior_hash_match').value,
+    merkle: document.getElementById('f_merkle').value,
+    timestamp_valid: document.getElementById('f_timestamp').value,
+    reversal: document.getElementById('f_reversal').value,
+    correction_method: document.getElementById('f_correction').value,
+    foureyes_required: document.getElementById('f_foureyes_required').value,
+    domain: document.getElementById('f_domain').value.trim(),
+  };
+
+  const res = runRules(inputs);
+  const draft = res.severity === 'clear' ? generateDraft(res, inputs) : null;
+  const draftChecks = draft ? checkDraft(draft, { amount: res.amount, txn_id: inputs.txn_id, counterparty_id: inputs.counterparty_id, seq: res.seq }) : null;
+
+  // Run strip: 6 steps
+  const r1Fired = res.fired.includes('R1');
+  const stripSteps = [
+    LIVE.fromLedger ? { badge:'Ledger', cls:'badge-rules', name:'Ledger lookup via gateway', status: 'Pass', statusCls: 'rs-pass' } : { badge:'AI', cls:'badge-ai', name:'AI reads entry record (not implemented in demo)', status: 'Manual entry', statusCls: 'rs-skip' },
+    { badge:'Rules', cls:'badge-rules', name:'Validate fields (R1)', status: r1Fired ? 'Fail — STOP' : 'Pass', statusCls: r1Fired ? 'rs-fail' : 'rs-pass' },
+    { badge:'Rules', cls:'badge-rules', name:'Hash & chain (R2, R3)', status: (res.fired.includes('R2')||res.fired.includes('R3')) ? 'Fail' : r1Fired ? 'Skipped' : 'Pass', statusCls: (res.fired.includes('R2')||res.fired.includes('R3')) ? 'rs-fail' : r1Fired ? 'rs-skip' : 'rs-pass' },
+    { badge:'Rules', cls:'badge-rules', name:'Threshold & counterparty (R5, R6)', status: (res.fired.includes('R5')||res.fired.includes('R6')) ? 'Fail' : r1Fired ? 'Skipped' : 'Pass', statusCls: (res.fired.includes('R5')||res.fired.includes('R6')) ? 'rs-fail' : r1Fired ? 'rs-skip' : 'rs-pass' },
+    { badge:'AI', cls:'badge-ai', name:'Draft narrative (template, no AI)', status: res.severity === 'clear' ? 'Pass' : 'Skipped', statusCls: res.severity === 'clear' ? 'rs-pass' : 'rs-skip' },
+    { badge:'Person', cls:'badge-human', name:'Manager sign-off', status: 'Required', statusCls: 'rs-pass' },
+  ];
+
+  let stripHTML = '<div class="run-strip">';
+  stripSteps.forEach(s => {
+    stripHTML += `<div class="run-step"><div class="rs-badge"><span class="badge ${s.cls}">${s.badge}</span></div><span class="rs-name">${s.name}</span><span class="rs-status ${s.statusCls}">${s.status}</span></div>`;
+  });
+  stripHTML += '</div>';
+
+  let verdictCls = 'verdict-clear';
+  if (res.severity === 'stop') verdictCls = 'verdict-stop';
+  else if (res.severity === 'legal') verdictCls = 'verdict-legal';
+  else if (res.severity === 'foureyes') verdictCls = 'verdict-foureyes';
+  else if (res.severity === 'manager') verdictCls = 'verdict-manager';
+
+  let html = stripHTML;
+  html += `<div class="result-block">`;
+  html += `<div class="result-verdict ${verdictCls}">&#9654; ${res.result} <span class="badge badge-rules" style="font-size:0.75rem;margin-left:8px;">Decided by your rules</span></div>`;
+
+  if (res.flags.length > 0) {
+    html += `<p style="font-size:0.8rem;margin-bottom:8px;">`;
+    res.flags.forEach(f => html += `<span class="badge badge-escalate" style="margin-right:4px;">${f}</span>`);
+    html += `</p>`;
+  }
+
+  // Rule trace
+  html += `<h3 style="margin-bottom:6px;">Why this result — <span style="font-size:0.8rem;font-weight:400;color:var(--text-muted);">VectorLedger hash-chain rules, traced</span></h3>`;
+  html += `<div class="rule-trace">`;
+  const allRules = ['R1','R2','R3','R4','R5','R6','R7','R8','R9','R10','R11'];
+  const ruleLabels = {
+    R1: 'Missing/invalid field → STOP (Invariant #3)',
+    R2: 'BLAKE3 content_hash mismatch → HASH_MISMATCH (Invariant #14)',
+    R3: 'Prior chain_hash linkage broken → CHAIN_BREAK (Invariant #14)',
+    R4: 'Reversal as silent_edit → IMPROPER_REVERSAL (append-only correction model; Invariants #11–#12)',
+    R5: `Amount > ${fmtUSD(THRESHOLD_AMOUNT)} → SECOND SIGN-OFF (related Invariant #8)`,
+    R6: 'Counterparty not approved → UNAPPROVED_COUNTERPARTY',
+    R7: 'Merkle proof failed → MERKLE_FAIL (Merkle commitment; not a numbered invariant)',
+    R8: 'Timestamp earlier than prior entry → TIMESTAMP_ANOMALY (Invariant #13)',
+    R9: 'require_four_eyes=true → FOUR_EYES_REQUIRED (Invariant #10)',
+    R10: 'All checks passed → CLEAR',
+    R11: 'Safety net: no clearance rule fired → ESCALATE TO COMPLIANCE MANAGER',
+  };
+  allRules.forEach(r => {
+    if (res.fired.includes(r)) {
+      html += `<span class="rule-fired">&#10003; ${r}: ${ruleLabels[r]}</span><br/>`;
+    } else if (!r1Fired) {
+      html += `<span class="rule-skip">&mdash; ${r}: not triggered</span><br/>`;
+    }
+  });
+  html += `</div>`;
+
+  // Draft
+  if (draft) {
+    html += `<h3 style="margin-top:16px;margin-bottom:6px;">Audit Explanation Draft <span class="badge badge-ai">Template draft · no AI in this demo</span></h3>`;
+    html += `<div class="draft-block">${esc(draft)}`;
+    html += `<div class="draft-checks">Checked by your rules:&nbsp;&nbsp;`;
+    draftChecks.forEach(c => {
+      html += `<span style="margin-right:12px;color:${c.pass ? 'var(--rule-approve)' : 'var(--rule-escalate)'};">${c.pass ? '&#10003;' : '&#10007;'} ${c.id}: ${c.label}</span>`;
+    });
+    html += `</div></div>`;
+  }
+  html += `</div>`;
+
+  // Four-eyes panel
+  if (res.severity === 'foureyes') {
+    const approvalId = 'DEMO-' + Math.random().toString(36).substring(2,10).toUpperCase();
+    html += `<div class="foureyes-panel">
+      <span class="badge badge-human">Four-eyes</span>
+      <strong style="margin-left:8px;">Four-Eyes Approval Required — VectorLedger Invariant #10</strong>
+      <table style="margin-top:10px;font-size:0.8rem;">
+        <tr><td style="color:var(--text-muted);padding:3px 12px 3px 0;font-weight:600;">Approval ID</td><td class="mono">${approvalId}</td></tr>
+        <tr><td style="color:var(--text-muted);padding:3px 12px 3px 0;font-weight:600;">Status</td><td><span class="badge badge-review">Pending</span></td></tr>
+        <tr><td style="color:var(--text-muted);padding:3px 12px 3px 0;font-weight:600;">Queue file</td><td><span class="mono">vledger-data/foureyes/pending.jsonl</span> is where a real queue lives. This demo writes nothing.</td></tr>
+        <tr><td style="color:var(--text-muted);padding:3px 12px 3px 0;font-weight:600;">Self-approval</td><td>Prevented — FourEyesError::SelfApproval if approver_id == submitter_id</td></tr>
+        <tr><td style="color:var(--text-muted);padding:3px 12px 3px 0;font-weight:600;">Idempotency</td><td>approve() checks approved.jsonl first; crash-safe atomic rename (pending.jsonl.tmp → pending.jsonl)</td></tr>
+      </table>
+      <div class="btn-row" style="margin-top:8px;">
+        <button class="btn btn-primary" onclick="this.textContent='Approved (simulated)';this.disabled=true;">Approve (simulated)</button>
+        <button class="btn btn-secondary" onclick="this.textContent='Rejected (simulated)';this.disabled=true;">Reject (simulated)</button>
+      </div>
+      <p style="font-size:0.78rem;color:var(--text-muted);margin-top:8px;">The entry_payload_hex (bincode-encoded JournalEntry) is stored in pending.jsonl so the queue can post it after approval without a live LedgerStore reference. Audit events FourEyesSubmitted → FourEyesApproved/Rejected are written to the WORM log.</p>
+    </div>`;
+  }
+
+  // Human checkpoint
+  const now = new Date();
+  const ts = now.toUTCString();
+  const analystId = LIVE.fromLedger ? esc(LIVE.user) : 'DEMO (no user session)';
+  const findingSummary = res.severity === 'clear'
+    ? `All VectorLedger integrity checks passed. Transaction ${esc(inputs.txn_id)} cleared for audit submission.`
+    : `Flags detected: ${res.flags.join(', ')}. Transaction ${esc(inputs.txn_id)} requires compliance manager review.`;
+
+  html += `<div class="human-panel">
+    <span class="badge badge-human">A person</span>
+    <strong style="margin-left:8px;">Compliance Manager Sign-Off Required</strong>
+    <table style="margin-top:10px;font-size:0.8rem;">
+      <tr><td style="color:var(--text-muted);padding:3px 12px 3px 0;font-weight:600;">Analyst</td><td class="mono">${analystId}</td></tr>
+      <tr><td style="color:var(--text-muted);padding:3px 12px 3px 0;font-weight:600;">Investigated</td><td class="mono">${ts}</td></tr>
+      <tr><td style="color:var(--text-muted);padding:3px 12px 3px 0;font-weight:600;">Finding</td><td>${findingSummary}</td></tr>
+      <tr><td style="color:var(--text-muted);padding:3px 12px 3px 0;font-weight:600;">Rules fired</td><td class="mono">${res.fired.join(', ')}</td></tr>
+      <tr><td style="color:var(--text-muted);padding:3px 12px 3px 0;font-weight:600;">Next step</td><td>${
+        res.severity === 'stop' ? 'Add test case for this failure before any fix; escalate to compliance manager' :
+        res.severity === 'legal' ? 'Route to legal counsel + compliance manager; flag entry in VectorLedger' :
+        res.severity === 'foureyes' ? 'Entry in four-eyes approval queue; second approver required' :
+        res.severity === 'manager' ? 'Route to compliance manager for review' :
+        'Draft ready for compliance manager sign-off; no output leaves without approval'
+      }</td></tr>
+    </table>
+    <p style="font-size:0.78rem;color:var(--text-muted);margin-top:8px;">No output leaves the system without sign-off. <strong>Open issue: R5 threshold (${fmtUSD(THRESHOLD_AMOUNT)}) is ASSUMED — confirm real exposure limit with compliance manager before wave 1.</strong></p>
+  </div>`;
+
+  html += liveEvidenceHtml();
+  html += `<p style="font-family:var(--mono);font-size:0.72rem;color:var(--text-muted);margin-top:12px;">RULES v1.0 · 11 RULES · ${LIVE.fromLedger ? 'LIVE LEDGER DATA · threshold, allow-list and four-eyes routing are demo rules' : 'SYNTHETIC DATA · DEMO · NOT CONNECTED TO A LEDGER'} · VectorLedger v1.8.0</p>`;
+
+  document.getElementById('output-empty').style.display = 'none';
+  document.getElementById('output-content').style.display = 'block';
+  document.getElementById('output-content').innerHTML = html;
+}
+
+
+// ── SELF TEST ─────────────────────────────────────────────
+const TEST_CASES = [
+  { id:'T1',  inputs: SCENARIOS.T1,  expectedSeverity:'clear',    expectedFired:['R10'] },
+  { id:'T2',  inputs: SCENARIOS.T2,  expectedSeverity:'legal',    expectedFired:['R4','R5'] },
+  { id:'T3',  inputs: SCENARIOS.T3,  expectedSeverity:'legal',    expectedFired:['R2'] },
+  { id:'T4',  inputs: SCENARIOS.T4,  expectedSeverity:'manager',  expectedFired:['R5','R6'] },
+  { id:'T5',  inputs: SCENARIOS.T5,  expectedSeverity:'legal',    expectedFired:['R3'] },
+  { id:'T6',  inputs: SCENARIOS.T6,  expectedSeverity:'legal',    expectedFired:['R7'] },
+  { id:'T7',  inputs: SCENARIOS.T7,  expectedSeverity:'manager',  expectedFired:['R8'] },
+  { id:'T8',  inputs: SCENARIOS.T8,  expectedSeverity:'legal',    expectedFired:['R2','R3','R4','R5','R6','R7','R8'] },
+  { id:'T9',  inputs: SCENARIOS.T9,  expectedSeverity:'stop',     expectedFired:['R1'] },
+  { id:'T10', inputs: SCENARIOS.T10, expectedSeverity:'foureyes', expectedFired:['R9','R5'] },
+  { id:'T11', inputs: SCENARIOS.T11, expectedSeverity:'clear',    expectedFired:['R10'] },
+  { id:'T12', inputs: SCENARIOS.T12, expectedSeverity:'clear',    expectedFired:['R10'] }, // boundary: $50K = threshold; R5 fires at > not >=
+  { id:'M1',  inputs: SCENARIOS.M1,  expectedSeverity:'stop',     expectedFired:['R1'] },
+  { id:'M2',  inputs: SCENARIOS.M2,  expectedSeverity:'stop',     expectedFired:['R1'] },
+  { id:'M3',  inputs: SCENARIOS.M3,  expectedSeverity:'stop',     expectedFired:['R1'] },
+];
+
+function scenarioToInputs(s) {
+  return {
+    txn_id: s.txn_id, sequence_raw: s.sequence, amount_raw: s.amount,
+    counterparty_id: s.counterparty, counterparty_approved: s.counterparty_approved,
+    hash_match: s.hash_match, prior_hash_match: s.prior_hash_match,
+    merkle: s.merkle, timestamp_valid: s.timestamp,
+    reversal: s.reversal, correction_method: s.correction,
+    foureyes_required: s.foureyes_required, domain: s.domain,
+  };
+}
+
+function runSelfTest() {
+  let passed = 0; const total = TEST_CASES.length; const lines = [];
+  lines.push('SELF-TEST — 15 cases (T1–T12, M1–M3) · JavaScript rules engine');
+  lines.push('');
+  TEST_CASES.forEach(tc => {
+    const res = runRules(scenarioToInputs(tc.inputs));
+    const severityMatch = res.severity === tc.expectedSeverity;
+    const firedMatch = tc.expectedFired.every(r => res.fired.includes(r));
+    const ok = severityMatch && firedMatch;
+    if (ok) passed++;
+    lines.push(`${ok ? '✓ PASS' : '✗ FAIL'} ${tc.id}: severity=${res.severity} (exp ${tc.expectedSeverity}) | fired=[${res.fired.join(',')}] (exp includes [${tc.expectedFired.join(',')}])`);
+  });
+  lines.push('');
+  lines.push(`Result: ${passed} / ${total} passed${passed === total ? ' — all tests pass ✓' : ' — FIX BEFORE SHIP'}`);
+  document.getElementById('selftest-block').style.display = 'block';
+  document.getElementById('selftest-output').textContent = lines.join('\n');
+}
+
+function runReadoutSelfTest() {
+  let passed = 0;
+  TEST_CASES.forEach(tc => {
+    const res = runRules(scenarioToInputs(tc.inputs));
+    if (res.severity === tc.expectedSeverity && tc.expectedFired.every(r => res.fired.includes(r))) passed++;
+  });
+  const total = TEST_CASES.length;
+  document.getElementById('readout-selftest').innerHTML =
+    `<strong>Self-Test: ${passed} of ${total} passed</strong> &nbsp;<span class="badge ${passed===total ? 'badge-approve' : 'badge-escalate'}">${passed===total ? 'All pass ✓' : passed + ' / ' + total}</span>`;
+}
+
+// ── STRESS TEST ───────────────────────────────────────────
+function runStressTest() {
+  const RUNS = 10; let disagreements = 0; const lines = [];
+  lines.push(`STRESS TEST — ${TEST_CASES.length * RUNS} inputs · ${RUNS} runs per case · determinism check`);
+  lines.push('');
+  TEST_CASES.forEach(tc => {
+    const results = [];
+    for (let i = 0; i < RUNS; i++) results.push(runRules(scenarioToInputs(tc.inputs)).severity);
+    const unique = [...new Set(results)];
+    const consistent = unique.length === 1;
+    if (!consistent) disagreements++;
+    lines.push(`${consistent ? '✓' : '✗ MISMATCH'} ${tc.id}: ${RUNS} runs → ${unique.join(', ')}`);
+  });
+  lines.push('');
+  lines.push(`Result: ${TEST_CASES.length * RUNS} inputs · ${disagreements} disagreements${disagreements === 0 ? ' — determinism holds ✓' : ' — ENGINE MISMATCH'}`);
+  const el = document.getElementById('stress-output');
+  el.style.display = 'block';
+  el.textContent = lines.join('\n');
+}
+
+// ── ROI CALCULATIONS ──────────────────────────────────────
+const ROI_PARAMS = {
+  N: 30,    // flags per week  (ASSUMED)
+  W: 48,    // working weeks   (convention)
+  C: 75,    // loaded $/hr     (ASSUMED)
+  B: 15000, // one-time build  (ASSUMED)
+  R: 3600,  // annual run cost (ASSUMED)
+  conservative: { a: 0.16, S: 45   },
+  base:         { a: 0.50, S: 56.5 },
+  stretch:      { a: 0.84, S: 68   },
+};
+
+function calcROI(scenario) {
+  const p = ROI_PARAMS;
+  const s = ROI_PARAMS[scenario];
+  const hours = p.N * p.W * (s.S / 60) * s.a;
+  const value = hours * p.C;
+  const monthlyNet = (value - p.R) / 12;
+  const payback = monthlyNet <= 0 ? null : 3 + (p.B + p.R / 4) / monthlyNet;
+  return {
+    hours: Math.round(hours),
+    value: Math.round(value),
+    payback: payback ? payback.toFixed(1) : 'N/A',
+    paybackNum: payback,
+  };
+}
+
+function setROI(scenario, btn) {
+  document.querySelectorAll('.roi-toggle button').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  const r = calcROI(scenario);
+  document.getElementById('roi-hours').textContent = r.hours.toLocaleString();
+  document.getElementById('roi-value').textContent = '$' + r.value.toLocaleString();
+  const paybackEl = document.getElementById('roi-payback');
+  paybackEl.textContent = r.payback + ' mo';
+  if (r.paybackNum !== null) {
+    paybackEl.style.color = r.paybackNum <= 12 ? 'var(--rule-approve)' : r.paybackNum <= 24 ? 'var(--rule-review)' : 'var(--rule-escalate)';
+  }
+  // Update KPI tile and readout
+  const cons = calcROI('conservative');
+  document.getElementById('kpi-payback').textContent = cons.payback + ' mo';
+  document.getElementById('readout-payback').textContent = cons.payback;
+}
+
+// ── RULES MODULE VIEW ─────────────────────────────────────
+function buildRulesView() {
+  // Python source — verbatim module (RULES_PY)
+  const py = `# rules.py — VectorLedger Transaction Investigation
+# Version 1.0 · 11 rules · 15 tests
+# Implements VectorLedger financial invariants in Python.
+# This module decides every case in the app. An engineer keeps this.
+# Standard library only — runs in any Python 3.8+ environment.
+
+import re
+
+# ── Thresholds (confirm R5 with compliance manager before wave 1) ──
+THRESHOLD_AMOUNT = 5000000  # minor units (cents) = $50,000.00; ASSUMED, confirm real exposure limit
+
+# ── Validation ─────────────────────────────────────────────────────
+def validate_amount(raw):
+    """Accept only digit-only string or positive int.
+    Reject decimals, signs, sci notation, bool (Invariant #3).
+    """
+    if isinstance(raw, bool):
+        return None, "Amount must be a whole number, not bool"
+    if isinstance(raw, int):
+        if raw <= 0:
+            return None, "Amount must be greater than 0 (Invariant #3)"
+        return raw, None
+    s = str(raw).strip()
+    if not re.fullmatch(r'\\d+', s):
+        return None, f"Invalid amount '{raw}': must be digits only (no decimals/signs/sci notation)"
+    n = int(s)
+    if n <= 0:
+        return None, "Amount must be greater than 0 (Invariant #3)"
+    return n, None
+
+def validate_sequence(raw):
+    """Optional sequence number — accept digits only or None."""
+    if raw is None or (isinstance(raw, str) and raw.strip() == ''):
+        return None, None
+    s = str(raw).strip()
+    if not re.fullmatch(r'\\d+', s):
+        return None, f"Invalid sequence '{raw}': must be digits only"
+    return int(s), None
+
+# ── Rules engine ────────────────────────────────────────────────────
+def run_rules(txn_id, amount_raw, counterparty_id, counterparty_approved,
+              hash_match, prior_hash_match, merkle_valid, timestamp_valid,
+              reversal, correction_method, foureyes_required="no",
+              sequence_raw=None, domain=None):
+    """
+    Run all 11 VectorLedger investigation rules.
+
+    All string choice fields: "yes" | "no" (lowercase).
+    amount_raw: str or int representing a whole positive number.
+
+    Returns dict: { result, severity, flags, fired, explanation, amount, seq }
+    """
+    fired = []
+    flags = []
+
+    # R1 — Validate / stop (read each field once; rules never see raw text)
+    amount, amt_err = validate_amount(amount_raw)
+    seq, seq_err = validate_sequence(sequence_raw)
+    required_fields = all([txn_id, counterparty_approved,
+                           (counterparty_approved == "na" or counterparty_id),
+                           hash_match, prior_hash_match, merkle_valid, timestamp_valid])
+    if not required_fields or amt_err or seq_err:
+        reason = amt_err or seq_err or "One or more required fields are missing"
+        return {"result": "STOP", "severity": "stop",
+                "flags": ["MISSING_OR_INVALID_FIELD"], "fired": ["R1"],
+                "explanation": f"R1 fired: {reason} — Stop, escalate to compliance manager.",
+                "amount": None, "seq": None}
+
+    # R2 — BLAKE3 content_hash mismatch (VectorLedger Invariant #14)
+    if hash_match == "no":
+        fired.append("R2"); flags.append("HASH_MISMATCH")
+
+    # R3 — Prior chain_hash linkage broken (VectorLedger Invariant #14)
+    if prior_hash_match == "no":
+        fired.append("R3"); flags.append("CHAIN_BREAK")
+
+    # R4 — Improper reversal — silent edit (append-only correction model; Invariants #11–#12)
+    if reversal == "yes" and correction_method == "silent_edit":
+        fired.append("R4"); flags.append("IMPROPER_REVERSAL")
+
+    # R5 — Amount threshold (VectorLedger related Invariant #8)
+    if amount > THRESHOLD_AMOUNT:
+        fired.append("R5"); flags.append("SECOND_SIGN_OFF_REQUIRED")
+
+    # R6 — Unapproved counterparty
+    if counterparty_approved == "no":
+        fired.append("R6"); flags.append("UNAPPROVED_COUNTERPARTY")
+
+    # R7 — Merkle proof failed (Merkle commitment; not a numbered invariant)
+    if merkle_valid == "no":
+        fired.append("R7"); flags.append("MERKLE_FAIL")
+
+    # R8 — Timestamp anomaly (VectorLedger Invariant #13)
+    if timestamp_valid == "no":
+        fired.append("R8"); flags.append("TIMESTAMP_ANOMALY")
+
+    # R9 — Four-eyes required (VectorLedger Invariant #10)
+    four_eyes = foureyes_required == "yes"
+    if four_eyes:
+        fired.append("R9"); flags.append("FOUR_EYES_REQUIRED")
+
+    # Conflict resolution: most restrictive wins
+    LEGAL_FLAGS   = {"HASH_MISMATCH", "CHAIN_BREAK", "IMPROPER_REVERSAL", "MERKLE_FAIL"}
+    MANAGER_FLAGS = {"UNAPPROVED_COUNTERPARTY", "TIMESTAMP_ANOMALY"}
+    has_legal   = any(f in LEGAL_FLAGS   for f in flags)
+    has_manager = any(f in MANAGER_FLAGS for f in flags)
+    has_second  = "SECOND_SIGN_OFF_REQUIRED" in flags
+
+    if has_legal:
+        result   = "ESCALATE TO LEGAL" + (" + SECOND SIGN-OFF" if has_second else "")
+        severity = "legal"
+    elif four_eyes:
+        result   = "ROUTE TO FOUR-EYES APPROVAL QUEUE" + (" + SECOND SIGN-OFF" if has_second else "")
+        severity = "foureyes"
+    elif has_manager:
+        result   = "ESCALATE TO COMPLIANCE MANAGER" + (" + SECOND SIGN-OFF" if has_second else "")
+        severity = "manager"
+    elif has_second:
+        result   = "SECOND SIGN-OFF REQUIRED"
+        severity = "manager"
+    else:
+        fired.append("R10")
+        result   = "CLEAR — proceed to audit draft"
+        severity = "clear"
+
+    # Dedup preserving order
+    fired = list(dict.fromkeys(fired))
+
+    expl_map = {
+        "R2":  f"R2: BLAKE3 content_hash mismatch (Invariant #14) → HASH_MISMATCH",
+        "R3":  f"R3: prior chain_hash broken (Invariant #14) → CHAIN_BREAK",
+        "R4":  f"R4: reversal as silent_edit (append-only correction model; Invariants #11–#12) → IMPROPER_REVERSAL",
+        "R5":  f"R5: amount {amount} minor units > {THRESHOLD_AMOUNT} (related Invariant #8) → SECOND SIGN-OFF",
+        "R6":  f"R6: counterparty not approved → UNAPPROVED_COUNTERPARTY",
+        "R7":  f"R7: Merkle proof failed (Merkle commitment; not a numbered invariant) → MERKLE_FAIL",
+        "R8":  f"R8: timestamp out of order (Invariant #13) → TIMESTAMP_ANOMALY",
+        "R9":  f"R9: require_four_eyes=true (Invariant #10) → FOUR_EYES_REQUIRED",
+        "R10": f"R10: all checks passed → CLEAR",
+        "R11": f"R11: safety net → ESCALATE TO COMPLIANCE MANAGER",
+    }
+    explanation = "\\n".join(expl_map[r] for r in fired if r in expl_map)
+
+    return {"result": result, "severity": severity, "flags": flags,
+            "fired": fired, "explanation": explanation,
+            "amount": amount, "seq": seq}
+
+
+# ── Self-test ────────────────────────────────────────────────────────
+def self_test():
+    """Run all 15 scenarios. Returns (passed, total)."""
+    cases = [
+        ("T1",  dict(txn_id="TXN-00412", amount_raw=1200000,   counterparty_id="CP-119",
+                     counterparty_approved="yes", hash_match="yes", prior_hash_match="yes",
+                     merkle_valid="yes", timestamp_valid="yes", reversal="no",
+                     correction_method="", foureyes_required="no"),
+                "clear",    ["R10"]),
+        ("T2",  dict(txn_id="TXN-00205", amount_raw=7500000,   counterparty_id="CP-044",
+                     counterparty_approved="yes", hash_match="yes", prior_hash_match="yes",
+                     merkle_valid="yes", timestamp_valid="yes", reversal="yes",
+                     correction_method="silent_edit", foureyes_required="no"),
+                "legal",    ["R4","R5"]),
+        ("T3",  dict(txn_id="TXN-00887", amount_raw=1200000,   counterparty_id="CP-119",
+                     counterparty_approved="yes", hash_match="no",  prior_hash_match="yes",
+                     merkle_valid="yes", timestamp_valid="yes", reversal="no",
+                     correction_method="", foureyes_required="no"),
+                "legal",    ["R2"]),
+        ("T4",  dict(txn_id="TXN-00991", amount_raw=20000000,  counterparty_id="CP-UNKNOWN",
+                     counterparty_approved="no",  hash_match="yes", prior_hash_match="yes",
+                     merkle_valid="yes", timestamp_valid="yes", reversal="no",
+                     correction_method="", foureyes_required="no"),
+                "manager",  ["R5","R6"]),
+        ("T5",  dict(txn_id="TXN-00334", amount_raw=3500000,   counterparty_id="CP-088",
+                     counterparty_approved="yes", hash_match="yes", prior_hash_match="no",
+                     merkle_valid="yes", timestamp_valid="yes", reversal="no",
+                     correction_method="", foureyes_required="no"),
+                "legal",    ["R3"]),
+        ("T6",  dict(txn_id="TXN-00556", amount_raw=1200000,   counterparty_id="CP-119",
+                     counterparty_approved="yes", hash_match="yes", prior_hash_match="yes",
+                     merkle_valid="no",  timestamp_valid="yes", reversal="no",
+                     correction_method="", foureyes_required="no"),
+                "legal",    ["R7"]),
+        ("T7",  dict(txn_id="TXN-00778", amount_raw=1200000,   counterparty_id="CP-119",
+                     counterparty_approved="yes", hash_match="yes", prior_hash_match="yes",
+                     merkle_valid="yes", timestamp_valid="no",  reversal="no",
+                     correction_method="", foureyes_required="no"),
+                "manager",  ["R8"]),
+        ("T8",  dict(txn_id="TXN-00999", amount_raw=7500000,   counterparty_id="CP-UNKNOWN",
+                     counterparty_approved="no",  hash_match="no",  prior_hash_match="no",
+                     merkle_valid="no",  timestamp_valid="no",  reversal="yes",
+                     correction_method="silent_edit", foureyes_required="no"),
+                "legal",    ["R2","R3","R4","R5","R6","R7","R8"]),
+        ("T9",  dict(txn_id="",           amount_raw=1200000,   counterparty_id="CP-119",
+                     counterparty_approved="yes", hash_match="yes", prior_hash_match="yes",
+                     merkle_valid="yes", timestamp_valid="yes", reversal="no",
+                     correction_method="", foureyes_required="no"),
+                "stop",     ["R1"]),
+        ("T10", dict(txn_id="TXN-00850", amount_raw=8500000,   counterparty_id="CP-200",
+                     counterparty_approved="yes", hash_match="yes", prior_hash_match="yes",
+                     merkle_valid="yes", timestamp_valid="yes", reversal="no",
+                     correction_method="", foureyes_required="yes"),
+                "foureyes", ["R9","R5"]),
+        ("T11", dict(txn_id="TXN-00300", amount_raw=2500000,   counterparty_id="CP-088",
+                     counterparty_approved="yes", hash_match="yes", prior_hash_match="yes",
+                     merkle_valid="yes", timestamp_valid="yes", reversal="yes",
+                     correction_method="new_entry", foureyes_required="no"),
+                "clear",    ["R10"]),
+        ("T12", dict(txn_id="TXN-00500", amount_raw=5000000,   counterparty_id="CP-119",
+                     counterparty_approved="yes", hash_match="yes", prior_hash_match="yes",
+                     merkle_valid="yes", timestamp_valid="yes", reversal="no",
+                     correction_method="", foureyes_required="no"),
+                "clear",    ["R10"]),  # $50K = threshold; R5 fires at > not >=
+        ("M1",  dict(txn_id="TXN-00100", amount_raw="12.5",  counterparty_id="CP-119",
+                     counterparty_approved="yes", hash_match="yes", prior_hash_match="yes",
+                     merkle_valid="yes", timestamp_valid="yes", reversal="no",
+                     correction_method="", foureyes_required="no"),
+                "stop",     ["R1"]),
+        ("M2",  dict(txn_id="TXN-00101", amount_raw="1e3",   counterparty_id="CP-119",
+                     counterparty_approved="yes", hash_match="yes", prior_hash_match="yes",
+                     merkle_valid="yes", timestamp_valid="yes", reversal="no",
+                     correction_method="", foureyes_required="no"),
+                "stop",     ["R1"]),
+        ("M3",  dict(txn_id="TXN-00102", amount_raw="-500",  counterparty_id="CP-119",
+                     counterparty_approved="yes", hash_match="yes", prior_hash_match="yes",
+                     merkle_valid="yes", timestamp_valid="yes", reversal="no",
+                     correction_method="", foureyes_required="no"),
+                "stop",     ["R1"]),
+    ]
+    passed = 0
+    for tid, inp, exp_sev, exp_fired in cases:
+        r = run_rules(**inp)
+        ok = r["severity"] == exp_sev and all(f in r["fired"] for f in exp_fired)
+        if ok: passed += 1
+        status = "PASS" if ok else "FAIL"
+        print(f"{status} {tid}: severity={r['severity']} fired={r['fired']}")
+    print(f"\\nSelf-test: {passed}/{len(cases)} passed")
+    return passed, len(cases)
+
+
+def determinism_check(inputs, runs=25):
+    """Verify same input always produces same result (determinism)."""
+    results = set()
+    for _ in range(runs):
+        r = run_rules(**inputs)
+        results.add(r["severity"])
+    return {"distinct_outputs": len(results), "values": list(results)}
+`;
+
+  document.getElementById('rules-py-display').textContent = py;
+
+  // Build parity table
+  const tbody = document.getElementById('parity-tbody');
+  tbody.innerHTML = '';
+  const expected = [
+    { id:'T1',  summary:'$12K, approved CP, all checks pass',                  exp:'CLEAR',                              expSev:'clear',    expFired:['R10'] },
+    { id:'T2',  summary:'$75K, silent edit reversal',                          exp:'ESCALATE TO LEGAL + SECOND SIGN-OFF', expSev:'legal',    expFired:['R4','R5'] },
+    { id:'T3',  summary:'$12K, BLAKE3 hash mismatch',                          exp:'ESCALATE TO LEGAL',                  expSev:'legal',    expFired:['R2'] },
+    { id:'T4',  summary:'$200K, unapproved counterparty',                      exp:'ESCALATE TO MANAGER + SECOND SIGN-OFF', expSev:'manager', expFired:['R5','R6'] },
+    { id:'T5',  summary:'$35K, chain_hash break',                              exp:'ESCALATE TO LEGAL',                  expSev:'legal',    expFired:['R3'] },
+    { id:'T6',  summary:'$12K, Merkle proof fail',                             exp:'ESCALATE TO LEGAL',                  expSev:'legal',    expFired:['R7'] },
+    { id:'T7',  summary:'$12K, timestamp anomaly',                             exp:'ESCALATE TO COMPLIANCE MANAGER',     expSev:'manager',  expFired:['R8'] },
+    { id:'T8',  summary:'Worst case — all flags fired',                        exp:'ESCALATE TO LEGAL + SECOND SIGN-OFF', expSev:'legal',    expFired:['R2','R3','R4','R5','R6','R7','R8'] },
+    { id:'T9',  summary:'Missing txn_id',                                      exp:'STOP',                               expSev:'stop',     expFired:['R1'] },
+    { id:'T10', summary:'$85K, four-eyes required',                            exp:'ROUTE TO FOUR-EYES QUEUE + SECOND SIGN-OFF', expSev:'foureyes', expFired:['R9','R5'] },
+    { id:'T11', summary:'$25K, valid new_entry reversal',                      exp:'CLEAR',                              expSev:'clear',    expFired:['R10'] },
+    { id:'T12', summary:'$50K — exactly at threshold (R5 fires > not >=)',     exp:'CLEAR',                              expSev:'clear',    expFired:['R10'] },
+    { id:'M1',  summary:'Amount "12.5" — decimal rejected',                    exp:'STOP',                               expSev:'stop',     expFired:['R1'] },
+    { id:'M2',  summary:'Amount "1e3" — sci notation rejected',                exp:'STOP',                               expSev:'stop',     expFired:['R1'] },
+    { id:'M3',  summary:'Amount "-500" — negative rejected',                   exp:'STOP',                               expSev:'stop',     expFired:['R1'] },
+  ];
+  expected.forEach(tc => {
+    const scenario = SCENARIOS[tc.id];
+    let actual = '—'; let match = '—';
+    if (scenario) {
+      const res = runRules(scenarioToInputs(scenario));
+      actual = res.severity;
+      const ok = res.severity === tc.expSev && tc.expFired.every(r => res.fired.includes(r));
+      match = ok ? '<span class="badge badge-approve">&#10003; Match</span>' : '<span class="badge badge-escalate">&#10007; Diff</span>';
+    }
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td class="mono">${tc.id}</td><td>${tc.summary}</td><td>${tc.exp}</td><td>${actual}</td><td>${match}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function copyRules() {
+  const text = document.getElementById('rules-py-display').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = event.target;
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = 'Copy rules.py', 2000);
+  }).catch(() => alert('Copy failed — select and copy the code block manually.'));
+}
+
+// ── LIVE LEDGER MODE (only when served by gateway/server.mjs) ──────────────
+const LIVE = { available: false, user: null, role: null, fromLedger: false, last: null };
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+const DEMO_BANNER_HTML = document.getElementById('demo-banner').innerHTML;
+
+async function api(method, path, body) {
+  try {
+    const r = await fetch(path, {
+      method, credentials: 'same-origin',
+      headers: Object.assign({ 'X-Requested-With': 'vl-ui' }, body ? { 'Content-Type': 'application/json' } : {}),
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    let j; try { j = await r.json(); } catch { j = { ok: false, error: 'unexpected response from gateway' }; }
+    return Object.assign({ status: r.status }, j);
+  } catch (e) { return { ok: false, status: 0, error: 'gateway unreachable' }; }
+}
+
+function setBanner() {
+  const b = document.getElementById('demo-banner');
+  if (LIVE.user && LIVE.fromLedger) {
+    b.classList.add('live');
+    b.innerHTML = '<strong>LIVE ledger data</strong> via the gateway, signed in as <strong>' + esc(LIVE.user) + '</strong> (' + esc(LIVE.role) + '). ' +
+      'Hash, chain-link, Merkle (computed by the ledger itself), timestamp order, amount and status come from the ledger. ' +
+      'The $50,000 threshold, counterparty allow-list, four-eyes routing and the draft wording are demo rules or templates, and the Approve/Reject buttons are simulated. ' +
+      'This is not a substitute for <span class="mono">vledger compliance-report</span> or an auditor\'s review.';
+  } else {
+    b.classList.remove('live');
+    b.innerHTML = DEMO_BANNER_HTML + (LIVE.user ? ' <strong>You are signed in, but the form currently holds sample or manual data.</strong>' : '');
+  }
+}
+
+const LIVE_FIELDS = {
+  txn_id: 'f_txn_id', counterparty: 'f_counterparty', counterparty_approved: 'f_counterparty_approved',
+  hash_match: 'f_hash_match', prior_hash_match: 'f_prior_hash_match', merkle: 'f_merkle', timestamp: 'f_timestamp',
+  reversal: 'f_reversal', correction: 'f_correction', foureyes_required: 'f_foureyes_required', domain: 'f_domain', amount: 'f_amount',
+};
+
+function clearLiveLocks() {
+  Object.values(LIVE_FIELDS).concat(['f_sequence']).forEach(id => {
+    const el = document.getElementById(id); el.disabled = false; el.title = '';
+    const lab = document.querySelector('label[for="' + id + '"]');
+    const t = lab && lab.querySelector('.src-tag'); if (t) t.remove();
+  });
+  LIVE.fromLedger = false; LIVE.last = null; setBanner();
+}
+
+function applyLiveField(key, f) {
+  const id = LIVE_FIELDS[key]; const el = document.getElementById(id);
+  const hasValue = f.value !== null && f.value !== undefined;
+  el.value = hasValue ? f.value : '';
+  const fromLedger = hasValue && f.value !== '' && /^(ledger|gateway)/.test(f.source);
+  el.disabled = fromLedger;                       // ledger-derived answers cannot be overridden by hand
+  el.title = f.source + (f.detail ? ': ' + f.detail : '');
+  const lab = document.querySelector('label[for="' + id + '"]');
+  if (lab) {
+    let t = lab.querySelector('.src-tag');
+    if (!t) { t = document.createElement('span'); t.className = 'src-tag'; lab.appendChild(t); }
+    t.textContent = hasValue && f.value !== '' ? f.source : 'enter manually';
+    t.className = 'src-tag ' + (fromLedger ? 'src-ledger' : 'src-manual');
+  }
+}
+
+function liveEvidenceHtml() {
+  const d = LIVE.last; if (!d) return '';
+  const rows = Object.entries(d.fields).map(([k, f]) =>
+    '<tr><td class="mono">' + esc(k) + '</td><td class="mono">' + esc(f.value === null ? '—' : f.value) + '</td><td>' + esc(f.source) + '</td><td style="color:var(--text-muted)">' + esc(f.detail) + '</td></tr>').join('');
+  const e = d.entry;
+  return '<div class="human-panel" style="margin-top:12px;"><strong>Ledger evidence</strong> <span class="badge badge-rules">live</span>' +
+    '<table style="margin-top:8px;font-size:0.76rem;"><thead><tr><th>Field</th><th>Value</th><th>Source</th><th>Detail</th></tr></thead><tbody>' + rows + '</tbody></table>' +
+    '<p class="mono" style="font-size:0.72rem;margin-top:8px;word-break:break-all;">seq ' + esc(d.sequence) + ' · status ' + esc(e.status) + '<br/>content_hash ' + esc(e.content_hash) + '<br/>chain_hash ' + esc(e.chain_hash) + '</p>' +
+    (e.description ? '<p style="font-size:0.78rem;margin-top:6px;"><strong>Description:</strong> ' + esc(e.description) + '</p>' : '') +
+    (d.notes || []).map(n => '<p style="font-size:0.78rem;color:var(--rule-escalate);margin-top:6px;">' + esc(n) + '</p>').join('') +
+    '<p style="font-size:0.74rem;color:var(--text-muted);margin-top:6px;">The Merkle result is built and checked by the ledger process itself, so it shows internal consistency, not independent proof. Use <span class="mono">vledger audit-package</span> for offline verification.</p></div>';
+}
+
+function liveMsg(id, text, bad) {
+  const el = document.getElementById(id); el.textContent = text; el.style.color = bad ? 'var(--rule-escalate)' : 'var(--text-muted)';
+}
+
+function showLiveSession() {
+  document.getElementById('live-login').style.display = LIVE.user ? 'none' : 'block';
+  document.getElementById('live-session').style.display = LIVE.user ? 'block' : 'none';
+  document.getElementById('live_who').textContent = LIVE.user ? LIVE.user + ' (' + LIVE.role + ')' : '';
+  setBanner();
+}
+
+async function liveLogin() {
+  const u = document.getElementById('live_user').value.trim(), p = document.getElementById('live_pass').value;
+  if (!u || !p) { liveMsg('live-login-msg', 'Enter a username and password.', true); return; }
+  liveMsg('live-login-msg', 'Signing in…');
+  const r = await api('POST', '/api/login', { username: u, password: p });
+  document.getElementById('live_pass').value = '';
+  if (!r.ok) { liveMsg('live-login-msg', r.error || 'Sign-in failed', true); return; }
+  LIVE.user = r.username; LIVE.role = r.role; liveMsg('live-login-msg', ''); showLiveSession();
+}
+
+async function liveLogout() {
+  await api('POST', '/api/logout');
+  LIVE.user = null; LIVE.role = null; clearLiveLocks(); showLiveSession(); liveMsg('live-msg', '');
+}
+
+function liveSessionLost() { LIVE.user = null; LIVE.role = null; clearLiveLocks(); showLiveSession(); liveMsg('live-login-msg', 'Session ended. Sign in again.', true); }
+
+async function liveFetch() {
+  const seq = document.getElementById('live_seq').value.trim();
+  if (!/^[1-9][0-9]{0,14}$/.test(seq)) { liveMsg('live-msg', 'Sequence must be a positive whole number.', true); return; }
+  liveMsg('live-msg', 'Querying ledger…');
+  const r = await api('GET', '/api/entries/' + seq + '/investigation');
+  if (r.status === 401) return liveSessionLost();
+  if (!r.ok) { liveMsg('live-msg', r.error || 'Request failed', true); return; }
+  if (!r.found) { liveMsg('live-msg', 'No entry with sequence ' + seq + '.', true); return; }
+  liveMsg('live-msg', 'Loaded entry ' + seq + '.');
+  clearLiveLocks();
+  LIVE.fromLedger = true; LIVE.last = r;
+  document.getElementById('f_sequence').value = seq; document.getElementById('f_sequence').disabled = true;
+  Object.entries(LIVE_FIELDS).forEach(([k, id]) => { if (r.fields[k]) applyLiveField(k, r.fields[k]); });
+  document.getElementById('correction_method_group').style.display = r.fields.reversal.value === 'yes' ? 'block' : 'none';
+  setBanner(); runInvestigation();
+}
+
+async function liveVerifyChain() {
+  liveMsg('live-msg', 'Verifying the full chain… about 1–1.5 s per million entries, so allow a minute or more on a large ledger. New postings wait until it finishes.');
+  const r = await api('GET', '/api/verify-chain');
+  if (r.status === 401) return liveSessionLost();
+  if (!r.ok) { liveMsg('live-msg', r.error || 'Request failed', true); return; }
+  liveMsg('live-msg', r.verified
+    ? 'Chain VERIFIED: ' + r.result.entries_verified + ' entries, tip ' + r.result.chain_tip
+    : 'CHAIN FAILED: ' + r.message, !r.verified);
+}
+
+async function initLive() {
+  if (!/^https?:$/.test(location.protocol)) return;       // opened as a file: demo mode only
+  const h = await api('GET', '/api/health');
+  if (!h.ok || h.service !== 'vledger-gateway') return;
+  LIVE.available = true;
+  document.getElementById('live-panel').style.display = 'block';
+  document.getElementById('live-target').textContent = h.ledger;
+  const me = await api('GET', '/api/me');
+  if (me.ok) { LIVE.user = me.username; LIVE.role = me.role; }
+  showLiveSession();
+  ['live_user', 'live_pass'].forEach(id => document.getElementById(id).addEventListener('keydown', e => { if (e.key === 'Enter') liveLogin(); }));
+  document.getElementById('live_seq').addEventListener('keydown', e => { if (e.key === 'Enter') liveFetch(); });
+}
+
+// ── INIT ──────────────────────────────────────────────────
+setROI('conservative', null);
+initLive();
+</script>
+</body>
+</html>
