@@ -19,10 +19,10 @@ impl Currency {
     pub fn minor_unit_precision(&self) -> u32 {
         match self.0.to_uppercase().as_str() {
             "USD" | "EUR" | "GBP" | "CAD" | "AUD" | "NZD" => 2,
-            "JPY" | "KRW" | "VND" | "CLP"                 => 0,
-            "BTC"                                           => 8,
-            "ETH"                                           => 18,
-            _                                               => 2,
+            "JPY" | "KRW" | "VND" | "CLP" => 0,
+            "BTC" => 8,
+            "ETH" => 18,
+            _ => 2,
         }
     }
 }
@@ -54,10 +54,7 @@ impl MinorUnits {
     /// # Errors
     /// Returns an error string if the value cannot be parsed or overflows
     /// `i64`.
-    pub fn from_decimal_str(
-        raw: &str,
-        precision: u32,
-    ) -> Result<Self, String> {
+    pub fn from_decimal_str(raw: &str, precision: u32) -> Result<Self, String> {
         // Strip whitespace
         let s = raw.trim();
 
@@ -142,10 +139,10 @@ pub enum AccountType {
 impl std::fmt::Display for AccountType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            AccountType::Deposit    => write!(f, "Deposit"),
-            AccountType::Loan       => write!(f, "Loan"),
+            AccountType::Deposit => write!(f, "Deposit"),
+            AccountType::Loan => write!(f, "Loan"),
             AccountType::Investment => write!(f, "Investment"),
-            AccountType::Other(s)   => write!(f, "Other({s})"),
+            AccountType::Other(s) => write!(f, "Other({s})"),
         }
     }
 }
@@ -230,16 +227,16 @@ pub enum TransactionType {
 impl From<&str> for TransactionType {
     fn from(s: &str) -> Self {
         match s.to_uppercase().as_str() {
-            "POS"      => TransactionType::Pos,
-            "CHECK"    => TransactionType::Check,
-            "ECHECK"   => TransactionType::ECheck,
-            "FEE"      => TransactionType::Fee,
+            "POS" => TransactionType::Pos,
+            "CHECK" => TransactionType::Check,
+            "ECHECK" => TransactionType::ECheck,
+            "FEE" => TransactionType::Fee,
             "INTEREST" => TransactionType::Interest,
-            "TAX"      => TransactionType::Tax,
+            "TAX" => TransactionType::Tax,
             "TRANSFER" => TransactionType::Transfer,
-            "ONLINE"   => TransactionType::Online,
-            "ATM"      => TransactionType::Atm,
-            _          => TransactionType::Unknown,
+            "ONLINE" => TransactionType::Online,
+            "ATM" => TransactionType::Atm,
+            _ => TransactionType::Unknown,
         }
     }
 }
@@ -247,16 +244,16 @@ impl From<&str> for TransactionType {
 impl std::fmt::Display for TransactionType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s = match self {
-            TransactionType::Pos      => "POS",
-            TransactionType::Check    => "CHECK",
-            TransactionType::ECheck   => "ECHECK",
-            TransactionType::Fee      => "FEE",
+            TransactionType::Pos => "POS",
+            TransactionType::Check => "CHECK",
+            TransactionType::ECheck => "ECHECK",
+            TransactionType::Fee => "FEE",
             TransactionType::Interest => "INTEREST",
-            TransactionType::Tax      => "TAX",
+            TransactionType::Tax => "TAX",
             TransactionType::Transfer => "TRANSFER",
-            TransactionType::Online   => "ONLINE",
-            TransactionType::Atm      => "ATM",
-            TransactionType::Unknown  => "UNKNOWN",
+            TransactionType::Online => "ONLINE",
+            TransactionType::Atm => "ATM",
+            TransactionType::Unknown => "UNKNOWN",
         };
         write!(f, "{s}")
     }
@@ -278,10 +275,10 @@ pub enum TransactionStatus {
 impl From<&str> for TransactionStatus {
     fn from(s: &str) -> Self {
         match s {
-            "Reconciled"      => TransactionStatus::Reconciled,
-            "NoReconciliation"=> TransactionStatus::NoReconciliation,
+            "Reconciled" => TransactionStatus::Reconciled,
+            "NoReconciliation" => TransactionStatus::NoReconciliation,
             "InstitutionPending" | "BannoPending" => TransactionStatus::Pending,
-            _                 => TransactionStatus::Posted,
+            _ => TransactionStatus::Posted,
         }
     }
 }
@@ -464,7 +461,10 @@ mod tests {
     fn transaction_type_from_str() {
         assert_eq!(TransactionType::from("TRANSFER"), TransactionType::Transfer);
         assert_eq!(TransactionType::from("POS"), TransactionType::Pos);
-        assert_eq!(TransactionType::from("unknown_value"), TransactionType::Unknown);
+        assert_eq!(
+            TransactionType::from("unknown_value"),
+            TransactionType::Unknown
+        );
     }
 
     #[test]

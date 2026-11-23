@@ -304,7 +304,9 @@ pub struct AlertRouter {
 impl AlertRouter {
     /// Create a router with an empty channel list (no-op until channels are added).
     pub fn new() -> Self {
-        Self { channels: Vec::new() }
+        Self {
+            channels: Vec::new(),
+        }
     }
 
     /// Add a channel to the router.
@@ -465,11 +467,7 @@ mod tests {
     async fn webhook_channel_suppresses_below_min_severity() {
         // Build a webhook channel that only accepts Critical.
         // Sending Warning should be suppressed (Ok, no HTTP call).
-        let ch = WebhookAlertChannel::new(
-            "https://example.com/hook".into(),
-            Severity::Critical,
-            0,
-        );
+        let ch = WebhookAlertChannel::new("https://example.com/hook".into(), Severity::Critical, 0);
         let alert = Alert::warning("src", "non-critical");
         assert!(ch.send(&alert).is_ok()); // suppressed, not an error
     }
@@ -477,11 +475,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn cooldown_suppresses_repeated_alerts() {
         // 60-second cooldown
-        let ch = WebhookAlertChannel::new(
-            "https://example.com/hook".into(),
-            Severity::Info,
-            60,
-        );
+        let ch = WebhookAlertChannel::new("https://example.com/hook".into(), Severity::Info, 60);
         // First call: not cooled down yet → would attempt delivery
         // (HTTP will fail since example.com/hook isn't real — we only
         // check that the cooldown mechanism tracks state correctly)

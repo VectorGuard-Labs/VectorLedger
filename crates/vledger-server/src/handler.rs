@@ -480,14 +480,21 @@ async fn execute_sql(
                         duration_ms: elapsed_ms,
                     });
                 }
-                Response::ok(qr.columns, cap_rows(qr.rows, config.max_result_rows), qr.rows_affected, qr.proof, qr.message)
+                Response::ok(
+                    qr.columns,
+                    cap_rows(qr.rows, config.max_result_rows),
+                    qr.rows_affected,
+                    qr.proof,
+                    qr.message,
+                )
             }
             Err(e) => Response::err(e.to_string()),
         }
     } else {
         let result = run_with_timeout!(async {
             let guard = ledger.read().await;
-            if attach {                ReadExecutor::with_proofs(&guard).execute(plan)
+            if attach {
+                ReadExecutor::with_proofs(&guard).execute(plan)
             } else {
                 ReadExecutor::new(&guard).execute(plan)
             }
@@ -504,7 +511,13 @@ async fn execute_sql(
                         duration_ms: elapsed_ms,
                     });
                 }
-                Response::ok(qr.columns, cap_rows(qr.rows, config.max_result_rows), qr.rows_affected, qr.proof, qr.message)
+                Response::ok(
+                    qr.columns,
+                    cap_rows(qr.rows, config.max_result_rows),
+                    qr.rows_affected,
+                    qr.proof,
+                    qr.message,
+                )
             }
             Err(e) => Response::err(e.to_string()),
         }
@@ -519,10 +532,7 @@ async fn execute_sql(
 /// Applied to every query result before serialization to prevent very large
 /// single-line JSON frames from deadlocking the TLS connection.
 #[inline]
-fn cap_rows(
-    mut rows: Vec<vledger_sql::result::Row>,
-    max: usize,
-) -> Vec<vledger_sql::result::Row> {
+fn cap_rows(mut rows: Vec<vledger_sql::result::Row>, max: usize) -> Vec<vledger_sql::result::Row> {
     if max > 0 && rows.len() > max {
         rows.truncate(max);
     }
@@ -590,30 +600,48 @@ fn apply_domain_filter(plan: LogicalPlan, domain: Option<String>) -> LogicalPlan
         _ => return plan, // no filter — pass through
     };
     match plan {
-        LogicalPlan::ScanEntries { filter, projections } => {
+        LogicalPlan::ScanEntries {
+            filter,
+            projections,
+        } => {
             // Only inject if no existing domain filter already present.
             let filter = match filter {
                 Some(EntryFilter::ByDomain(_)) => Some(EntryFilter::ByDomain(d)),
                 Some(other) => Some(other), // respect explicit user filter
                 None => Some(EntryFilter::ByDomain(d)),
             };
-            LogicalPlan::ScanEntries { filter, projections }
+            LogicalPlan::ScanEntries {
+                filter,
+                projections,
+            }
         }
-        LogicalPlan::ScanLedgerLines { filter, projections } => {
+        LogicalPlan::ScanLedgerLines {
+            filter,
+            projections,
+        } => {
             let filter = match filter {
                 Some(EntryFilter::ByDomain(_)) => Some(EntryFilter::ByDomain(d)),
                 Some(other) => Some(other),
                 None => Some(EntryFilter::ByDomain(d)),
             };
-            LogicalPlan::ScanLedgerLines { filter, projections }
+            LogicalPlan::ScanLedgerLines {
+                filter,
+                projections,
+            }
         }
-        LogicalPlan::ScanAccounts { filter, projections } => {
+        LogicalPlan::ScanAccounts {
+            filter,
+            projections,
+        } => {
             let filter = match filter {
                 Some(EntryFilter::ByDomain(_)) => Some(EntryFilter::ByDomain(d)),
                 Some(other) => Some(other),
                 None => Some(EntryFilter::ByDomain(d)),
             };
-            LogicalPlan::ScanAccounts { filter, projections }
+            LogicalPlan::ScanAccounts {
+                filter,
+                projections,
+            }
         }
         other => other,
     }

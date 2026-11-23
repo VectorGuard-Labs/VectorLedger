@@ -15,13 +15,13 @@ mod tests {
     use tempfile::TempDir;
 
     use crate::{
-        encrypt::{decrypt_record, derive_segment_key, encrypt_record, is_encrypted, ENCRYPTED_MAGIC},
+        encrypt::{
+            decrypt_record, derive_segment_key, encrypt_record, is_encrypted, ENCRYPTED_MAGIC,
+        },
         error::WalError,
         record::{BeginPayload, RecordType},
         recovery::{recover, recover_verified},
-        WalReader,
-        WalWriter,
-        WalSyncMode,
+        WalReader, WalSyncMode, WalWriter,
     };
 
     // ─────────────────────────────────────────────────────────────────────
@@ -80,7 +80,10 @@ mod tests {
         let magic_bytes = ENCRYPTED_MAGIC.to_le_bytes();
         let mut buf = vec![0u8; 20];
         buf[..4].copy_from_slice(&magic_bytes);
-        assert!(is_encrypted(&buf), "ENCRYPTED_MAGIC prefix must be detected as encrypted");
+        assert!(
+            is_encrypted(&buf),
+            "ENCRYPTED_MAGIC prefix must be detected as encrypted"
+        );
     }
 
     /// is_encrypted returns false for plaintext WAL magic.
@@ -89,14 +92,23 @@ mod tests {
         let wal_magic = crate::WAL_MAGIC.to_le_bytes();
         let mut buf = vec![0u8; 20];
         buf[..4].copy_from_slice(&wal_magic);
-        assert!(!is_encrypted(&buf), "WAL_MAGIC prefix must not be detected as encrypted");
+        assert!(
+            !is_encrypted(&buf),
+            "WAL_MAGIC prefix must not be detected as encrypted"
+        );
     }
 
     /// is_encrypted returns false for an empty/short buffer.
     #[test]
     fn is_encrypted_returns_false_for_short_buffer() {
-        assert!(!is_encrypted(&[]), "empty buffer must not be detected as encrypted");
-        assert!(!is_encrypted(&[0u8; 3]), "3-byte buffer must not be detected as encrypted");
+        assert!(
+            !is_encrypted(&[]),
+            "empty buffer must not be detected as encrypted"
+        );
+        assert!(
+            !is_encrypted(&[0u8; 3]),
+            "3-byte buffer must not be detected as encrypted"
+        );
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -140,7 +152,10 @@ mod tests {
         let plaintext = b"WAL record bytes for test";
         let ciphertext = encrypt_record(&key, plaintext, 0).unwrap();
         let decrypted = decrypt_record(&key, &ciphertext, 0).unwrap();
-        assert_eq!(decrypted, plaintext, "decrypt must recover original plaintext");
+        assert_eq!(
+            decrypted, plaintext,
+            "decrypt must recover original plaintext"
+        );
     }
 
     /// Wrong segment index as AAD causes decryption to fail.
@@ -215,7 +230,10 @@ mod tests {
         write_plaintext_records(dir.path(), 5);
         let reader = WalReader::open(dir.path()).unwrap();
         let count = reader.filter_map(|r| r.ok()).count();
-        assert!(count >= 5, "must read at least 5 plaintext records, got {count}");
+        assert!(
+            count >= 5,
+            "must read at least 5 plaintext records, got {count}"
+        );
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -312,7 +330,9 @@ mod tests {
         for result in reader {
             match result {
                 Ok(_) => {}
-                Err(WalError::Decryption) | Err(WalError::BadMagic) | Err(WalError::ChecksumMismatch { .. }) => {
+                Err(WalError::Decryption)
+                | Err(WalError::BadMagic)
+                | Err(WalError::ChecksumMismatch { .. }) => {
                     hit_error = true;
                     break;
                 }

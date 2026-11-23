@@ -126,8 +126,8 @@ where
                     last_sequence = record.header.sequence;
                 }
 
-                let record_type = RecordType::try_from(record.header.record_type)
-                    .map_err(E::from)?;
+                let record_type =
+                    RecordType::try_from(record.header.record_type).map_err(E::from)?;
                 let tx_id = record.header.tx_id;
 
                 match record_type {
@@ -145,22 +145,24 @@ where
                         } else {
                             // Peek table_id from first 4 bytes — no heap alloc.
                             let table_id = decode_table_id_only(&record.payload);
-                            let skip = skip_row_data_for_table
-                                .is_some_and(|s| table_id == Some(s));
+                            let skip = skip_row_data_for_table.is_some_and(|s| table_id == Some(s));
 
                             if skip {
                                 // Store a zero-allocation sentinel payload.
                                 // row_data is empty — the callback must not
                                 // try to decode it for this table_id.
-                                pending_payloads.entry(tx_id).or_default().push(DataPayload {
-                                    table_id: table_id.unwrap_or(0),
-                                    page_id: 0,
-                                    slot_id: 0,
-                                    mutation: crate::record::MutationKind::Insert,
-                                    row_data: Vec::new(),
-                                    row_hash: [0u8; 32],
-                                    prev_hash: None,
-                                });
+                                pending_payloads
+                                    .entry(tx_id)
+                                    .or_default()
+                                    .push(DataPayload {
+                                        table_id: table_id.unwrap_or(0),
+                                        page_id: 0,
+                                        slot_id: 0,
+                                        mutation: crate::record::MutationKind::Insert,
+                                        row_data: Vec::new(),
+                                        row_hash: [0u8; 32],
+                                        prev_hash: None,
+                                    });
                             } else {
                                 match decode_data_payload(&record) {
                                     Ok(payload) => {
@@ -179,7 +181,8 @@ where
                             let raw = pending_raw.get(&tx_id).map(|v| v.as_slice()).unwrap_or(&[]);
                             verify_commit_full(&record, raw).map_err(E::from)?;
                             let records = pending_raw.remove(&tx_id).unwrap_or_default();
-                            let payloads = records.iter()
+                            let payloads = records
+                                .iter()
                                 .filter_map(|r| decode_data_payload(r).ok())
                                 .collect();
                             (records, payloads)
@@ -291,7 +294,8 @@ fn recover_with_options(
                         }
 
                         let data_records = pending.remove(&tx_id).unwrap_or_default();
-                        let data_payloads = data_records.iter()
+                        let data_payloads = data_records
+                            .iter()
                             .filter_map(|r| decode_data_payload(r).ok())
                             .collect();
                         committed.push(CommittedTransaction {
@@ -496,12 +500,9 @@ pub fn decode_data_payload(record: &WalRecord) -> Result<DataPayload, WalError> 
 
 /// Decode a [`DataPayload`] from raw bytes.
 pub fn decode_data_payload_from_bytes(bytes: &[u8]) -> Result<DataPayload, WalError> {
-    bincode::serde::decode_from_slice(
-        bytes,
-        bincode::config::standard().with_fixed_int_encoding(),
-    )
-    .map(|(p, _)| p)
-    .map_err(|e: bincode::error::DecodeError| WalError::Serialization(e.to_string()))
+    bincode::serde::decode_from_slice(bytes, bincode::config::standard().with_fixed_int_encoding())
+        .map(|(p, _)| p)
+        .map_err(|e: bincode::error::DecodeError| WalError::Serialization(e.to_string()))
 }
 
 /// Decode only the `table_id` from a raw DataPayload byte slice.

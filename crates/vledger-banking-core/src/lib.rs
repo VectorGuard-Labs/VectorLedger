@@ -18,17 +18,15 @@
 //! VectorLedger ingests from those normalized types and never imports connector
 //! crates directly.
 
-pub mod error;
-pub mod types;
 pub mod connector;
+pub mod error;
 pub mod ingest;
+pub mod types;
 
-pub use error::CoreBankingError;
-pub use types::{
-    NormalizedAccount, NormalizedTransaction,
-    AccountType, AccountStatus,
-    TransactionType, TransactionStatus,
-    MinorUnits, Currency,
-};
 pub use connector::CoreBankingConnector;
+pub use error::CoreBankingError;
 pub use ingest::IngestRecord;
+pub use types::{
+    AccountStatus, AccountType, Currency, MinorUnits, NormalizedAccount, NormalizedTransaction,
+    TransactionStatus, TransactionType,
+};

@@ -1,0 +1,1 @@
+SELECT COUNT(en~E!~ENUce) FROM ledger

@@ -13,7 +13,7 @@
 
 #[cfg(test)]
 mod tests {
-    use crate::kdf::{DerivedKey, MasterKey};
+    use crate::kdf::MasterKey;
 
     // ─────────────────────────────────────────────────────────────────────
     // Determinism
@@ -59,7 +59,11 @@ mod tests {
         let master = MasterKey::from_bytes([0x55u8; 32]);
         let enc = master.table_encrypt_key(0).unwrap();
         let sign = master.table_sign_key(0).unwrap();
-        assert_ne!(enc.as_bytes(), sign.as_bytes(), "encrypt and sign keys must differ for same table");
+        assert_ne!(
+            enc.as_bytes(),
+            sign.as_bytes(),
+            "encrypt and sign keys must differ for same table"
+        );
     }
 
     /// table_encrypt_key for different table IDs are distinct.
@@ -81,8 +85,16 @@ mod tests {
         let wal = master.wal_sign_key().unwrap();
         let t0_enc = master.table_encrypt_key(0).unwrap();
         let t0_sign = master.table_sign_key(0).unwrap();
-        assert_ne!(wal.as_bytes(), t0_enc.as_bytes(), "WAL key must differ from table-0 encrypt key");
-        assert_ne!(wal.as_bytes(), t0_sign.as_bytes(), "WAL key must differ from table-0 sign key");
+        assert_ne!(
+            wal.as_bytes(),
+            t0_enc.as_bytes(),
+            "WAL key must differ from table-0 encrypt key"
+        );
+        assert_ne!(
+            wal.as_bytes(),
+            t0_sign.as_bytes(),
+            "WAL key must differ from table-0 sign key"
+        );
     }
 
     /// row_key is distinct for different row IDs within the same table.
@@ -104,7 +116,8 @@ mod tests {
         let r_t0 = master.row_key(0, 42).unwrap();
         let r_t1 = master.row_key(1, 42).unwrap();
         assert_ne!(
-            r_t0.as_bytes(), r_t1.as_bytes(),
+            r_t0.as_bytes(),
+            r_t1.as_bytes(),
             "same row ID in different tables must produce different keys"
         );
     }
@@ -138,10 +151,7 @@ mod tests {
 
         for i in 0..keys.len() {
             for j in (i + 1)..keys.len() {
-                assert_ne!(
-                    keys[i], keys[j],
-                    "keys[{i}] and keys[{j}] must be distinct"
-                );
+                assert_ne!(keys[i], keys[j], "keys[{i}] and keys[{j}] must be distinct");
             }
         }
     }
@@ -160,7 +170,10 @@ mod tests {
         let plaintext = b"test data for derived key encryption";
         let ciphertext = crate::encrypt::encrypt(&enc_key, plaintext, None).unwrap();
         let decrypted = crate::encrypt::decrypt(&enc_key, &ciphertext, None).unwrap();
-        assert_eq!(decrypted, plaintext, "encrypt/decrypt round-trip must work with derived key");
+        assert_eq!(
+            decrypted, plaintext,
+            "encrypt/decrypt round-trip must work with derived key"
+        );
     }
 
     /// into_signing_seed returns a 32-byte array usable as an Ed25519 seed.
@@ -185,7 +198,10 @@ mod tests {
         let master = MasterKey::from_bytes([0xFFu8; 32]);
         let ctx = "vgdb/table/42/encrypt";
         let key = master.derive(ctx).unwrap();
-        assert_eq!(key.context, ctx, "DerivedKey::context must match the derivation context");
+        assert_eq!(
+            key.context, ctx,
+            "DerivedKey::context must match the derivation context"
+        );
     }
 
     #[test]

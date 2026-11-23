@@ -31,14 +31,14 @@
 
 #[cfg(test)]
 mod adversarial_tests;
-#[cfg(test)]
-mod sql_tests;
 pub mod error;
 pub mod executor;
 pub mod optimizer;
 pub mod parser;
 pub mod planner;
 pub mod result;
+#[cfg(test)]
+mod sql_tests;
 
 pub use error::SqlError;
 pub use executor::{Executor, ReadExecutor};

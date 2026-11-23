@@ -52,23 +52,30 @@ impl<'a> ReadExecutor<'a> {
     /// Returns `Err(SqlError::Unsupported)` if a write plan is passed.
     pub fn execute(&self, plan: LogicalPlan) -> Result<QueryResult, SqlError> {
         match plan {
-            LogicalPlan::ScanEntries { filter, projections } => {
-                self.exec_scan_entries(filter).map(|r| r.project(&projections))
-            }
-            LogicalPlan::ScanLedgerLines { filter, projections } => {
-                self.exec_scan_ledger_lines(filter).map(|r| r.project(&projections))
-            }
-            LogicalPlan::ScanAccounts { filter, projections } => {
-                self.exec_scan_accounts(filter).map(|r| r.project(&projections))
-            }
+            LogicalPlan::ScanEntries {
+                filter,
+                projections,
+            } => self
+                .exec_scan_entries(filter)
+                .map(|r| r.project(&projections)),
+            LogicalPlan::ScanLedgerLines {
+                filter,
+                projections,
+            } => self
+                .exec_scan_ledger_lines(filter)
+                .map(|r| r.project(&projections)),
+            LogicalPlan::ScanAccounts {
+                filter,
+                projections,
+            } => self
+                .exec_scan_accounts(filter)
+                .map(|r| r.project(&projections)),
             LogicalPlan::GetBalance { account_ref } => self.exec_get_balance(&account_ref),
             LogicalPlan::VerifyChain { from_seq, to_seq } => {
                 self.exec_verify_chain(from_seq, to_seq)
             }
             LogicalPlan::VerifyEntry { sequence } => self.exec_verify_entry(sequence),
-            LogicalPlan::MerkleRoot { from_seq, to_seq } => {
-                self.exec_merkle_root(from_seq, to_seq)
-            }
+            LogicalPlan::MerkleRoot { from_seq, to_seq } => self.exec_merkle_root(from_seq, to_seq),
             LogicalPlan::Constant { col, val } => self.exec_constant(col, val),
             LogicalPlan::Join(spec) => self.exec_join(spec),
             LogicalPlan::Aggregate(spec) => self.exec_aggregate(spec),
@@ -200,7 +207,11 @@ impl<'a> ReadExecutor<'a> {
             let limit = explicit_limit.unwrap_or(Self::DEFAULT_SCAN_LIMIT);
             let matched = self.ledger.search_metadata(query, limit);
             return Self::build_scan_entries_result(
-                cols, matched, true, None, self.attach_proofs,
+                cols,
+                matched,
+                true,
+                None,
+                self.attach_proofs,
                 |root| self.ledger.sign_bytes(root),
             );
         }
@@ -214,13 +225,22 @@ impl<'a> ReadExecutor<'a> {
                 if matched.len() >= result_limit {
                     return Err(vledger_ledger::LedgerError::Serialization("limit".into()));
                 }
-                if entry.metadata.as_deref().map(|m| m == needle.as_str()).unwrap_or(false) {
+                if entry
+                    .metadata
+                    .as_deref()
+                    .map(|m| m == needle.as_str())
+                    .unwrap_or(false)
+                {
                     matched.push(entry);
                 }
                 Ok(())
             });
             return Self::build_scan_entries_result(
-                cols, matched, true, None, self.attach_proofs,
+                cols,
+                matched,
+                true,
+                None,
+                self.attach_proofs,
                 |root| self.ledger.sign_bytes(root),
             );
         }
@@ -234,7 +254,9 @@ impl<'a> ReadExecutor<'a> {
                 if matched.len() >= result_limit {
                     return Err(vledger_ledger::LedgerError::Serialization("limit".into()));
                 }
-                if entry.metadata.as_deref()
+                if entry
+                    .metadata
+                    .as_deref()
                     .map(|m| m.to_lowercase().contains(&needle_lower))
                     .unwrap_or(false)
                 {
@@ -243,7 +265,11 @@ impl<'a> ReadExecutor<'a> {
                 Ok(())
             });
             return Self::build_scan_entries_result(
-                cols, matched, true, None, self.attach_proofs,
+                cols,
+                matched,
+                true,
+                None,
+                self.attach_proofs,
                 |root| self.ledger.sign_bytes(root),
             );
         }
@@ -431,7 +457,12 @@ impl<'a> ReadExecutor<'a> {
                 if matched.len() >= result_limit {
                     return Err(vledger_ledger::LedgerError::Serialization("limit".into()));
                 }
-                if entry.metadata.as_deref().map(|m| m == needle.as_str()).unwrap_or(false) {
+                if entry
+                    .metadata
+                    .as_deref()
+                    .map(|m| m == needle.as_str())
+                    .unwrap_or(false)
+                {
                     matched.push(entry);
                 }
                 Ok(())
@@ -448,7 +479,9 @@ impl<'a> ReadExecutor<'a> {
                 if matched.len() >= result_limit {
                     return Err(vledger_ledger::LedgerError::Serialization("limit".into()));
                 }
-                if entry.metadata.as_deref()
+                if entry
+                    .metadata
+                    .as_deref()
                     .map(|m| m.to_lowercase().contains(&needle_lower))
                     .unwrap_or(false)
                 {
@@ -706,11 +739,7 @@ impl<'a> ReadExecutor<'a> {
 
     // ── SELECT MERKLE_ROOT(from_seq, to_seq) ─────────────────────────────
 
-    fn exec_merkle_root(
-        &self,
-        from_seq: u64,
-        to_seq: u64,
-    ) -> Result<QueryResult, SqlError> {
+    fn exec_merkle_root(&self, from_seq: u64, to_seq: u64) -> Result<QueryResult, SqlError> {
         let cols = vec![
             "from_seq".into(),
             "to_seq".into(),
@@ -739,10 +768,7 @@ impl<'a> ReadExecutor<'a> {
 
         // The leaf inputs are each entry's content_hash — the same bytes used
         // by build_scan_entries_result and exec_verify_chain for integrity checks.
-        let leaf_data: Vec<Vec<u8>> = entries
-            .iter()
-            .map(|e| e.content_hash.to_vec())
-            .collect();
+        let leaf_data: Vec<Vec<u8>> = entries.iter().map(|e| e.content_hash.to_vec()).collect();
 
         let root = merkle_root(&leaf_data);
         let n = entries.len();

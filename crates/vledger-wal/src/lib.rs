@@ -47,9 +47,9 @@
 //! ```
 
 pub mod encrypt;
-pub mod error;
 #[cfg(test)]
 mod encryption_migration_tests;
+pub mod error;
 pub mod key_rotation;
 pub mod reader;
 pub mod record;
@@ -60,9 +60,9 @@ pub mod writer;
 pub use encrypt::{decrypt_record, derive_segment_key, encrypt_record, is_encrypted, WalKey};
 pub use error::WalError;
 pub use key_rotation::{rotate_wal_key, KeyRotationResult};
-pub use reader::{WalReader, scan_last_sequence_in_segment};
+pub use reader::{scan_last_sequence_in_segment, WalReader};
 pub use record::{RecordType, WalRecord};
-pub use recovery::{recover, recover_streaming, recover_verified, decode_table_id_only};
+pub use recovery::{decode_table_id_only, recover, recover_streaming, recover_verified};
 pub use writer::{spawn_group_commit_flusher, FlushState, WalSyncMode, WalWriter};
 
 /// WAL magic number — spells "VectorLedger" in hex.

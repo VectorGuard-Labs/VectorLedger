@@ -1,0 +1,1 @@
+sELECT Cd,UO,NT() FROM _er

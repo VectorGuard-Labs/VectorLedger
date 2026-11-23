@@ -1,0 +1,1 @@
+sELECT COUNT()seq FROM l

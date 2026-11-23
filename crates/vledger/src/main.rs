@@ -13,6 +13,7 @@ static GLOBAL: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
 
 mod audit_package;
 mod backup;
+mod export;
 mod key_rotation;
 mod self_test;
 
@@ -376,6 +377,23 @@ enum Commands {
         /// Default: 3
         #[arg(long, default_value_t = 3)]
         pyhsm_max_retries: u32,
+    },
+    /// Export all ledger data (accounts, balances, entries, journal lines)
+    /// to a directory of CSV/JSONL files with a BLAKE3 manifest.
+    ///
+    /// Works on every license tier, including after a license has lapsed.
+    /// Offline command: stop the server first. Verifies the hash chain
+    /// before writing anything. Used for decommissioning and migration;
+    /// see DECOMMISSION.md.
+    #[command(name = "export")]
+    Export {
+        /// Output directory. Must not exist or must be empty.
+        #[arg(short, long)]
+        output: PathBuf,
+        /// Export even if hash-chain verification fails. The manifest
+        /// records `chain_verified: false`.
+        #[arg(long)]
+        allow_unverified: bool,
     },
     /// Export the audit log to JSON or CSV.
     #[command(name = "audit-export")]
@@ -914,11 +932,39 @@ async fn main() -> Result<()> {
         }
         Commands::SelfTest => cmd_self_test().await,
         Commands::SelfTestPhase3 => cmd_self_test_phase3().await,
-        Commands::Mcp { bind, server, ca_cert, username, password } => {
-            cmd_mcp(&cli.data_dir, &bind, server.as_deref(), ca_cert.as_deref(), username.as_deref(), password.as_deref()).await
-        }        // Phase 3
-        Commands::Ingest { source, token, user_id, audit_package, domain } => {
-            cmd_ingest(&cli.data_dir, &source, token.as_deref(), user_id.as_deref(), audit_package.as_deref(), &domain).await
+        Commands::Mcp {
+            bind,
+            server,
+            ca_cert,
+            username,
+            password,
+        } => {
+            cmd_mcp(
+                &cli.data_dir,
+                &bind,
+                server.as_deref(),
+                ca_cert.as_deref(),
+                username.as_deref(),
+                password.as_deref(),
+            )
+            .await
+        } // Phase 3
+        Commands::Ingest {
+            source,
+            token,
+            user_id,
+            audit_package,
+            domain,
+        } => {
+            cmd_ingest(
+                &cli.data_dir,
+                &source,
+                token.as_deref(),
+                user_id.as_deref(),
+                audit_package.as_deref(),
+                &domain,
+            )
+            .await
         }
         Commands::Backup { output } => cmd_backup(&cli.data_dir, output.as_deref()).await,
         Commands::Restore {
@@ -964,6 +1010,17 @@ async fn main() -> Result<()> {
             )
             .await
         }
+        Commands::Export {
+            output,
+            allow_unverified,
+        } => export::run(
+            &cli.data_dir,
+            &export::ExportOptions {
+                output,
+                allow_unverified,
+            },
+        )
+        .map(|_| ()),
         Commands::ComplianceReport {
             standard,
             format,
@@ -1502,9 +1559,7 @@ async fn cmd_start(
     // Load channels from catalog/alerts.json (if present).
     // Always contains at least LogOnlyAlertChannel so existing behaviour
     // is preserved when no alerts.json is configured.
-    let alert_router = std::sync::Arc::new(
-        vledger_server::load_alert_router(data_dir)
-    );
+    let alert_router = std::sync::Arc::new(vledger_server::load_alert_router(data_dir));
 
     let user_store = std::sync::Arc::new(
         vledger_server::UserStore::open(&data_dir.join("catalog"))
@@ -2114,8 +2169,7 @@ async fn translate_nl_to_sql(question: &str) -> Result<String> {
         )
     })?;
 
-    let model =
-        std::env::var("OPENAI_MODEL").unwrap_or_else(|_| "gpt-4o".to_string());
+    let model = std::env::var("OPENAI_MODEL").unwrap_or_else(|_| "gpt-4o".to_string());
     let base_url = std::env::var("OPENAI_BASE_URL")
         .unwrap_or_else(|_| "https://api.openai.com/v1".to_string());
     let url = format!("{}/chat/completions", base_url.trim_end_matches('/'));
@@ -2189,14 +2243,16 @@ async fn cmd_sql(
         let license = vledger_license::LicenseStore::load_or_free(data_dir);
         license
             .require_feature(vledger_license::Feature::AgenticAi)
-            .map_err(|_| anyhow::anyhow!(
-                "The --ask feature requires a Starter, Growth, or Enterprise license.\n\
+            .map_err(|_| {
+                anyhow::anyhow!(
+                    "The --ask feature requires a Starter, Growth, or Enterprise license.\n\
                  \n\
                  Current tier: {}\n\
                  \n\
                  To upgrade: contact pavon@vectorguardlabs.com",
-                license.tier
-            ))?;
+                    license.tier
+                )
+            })?;
         translated = translate_nl_to_sql(question).await?;
         eprintln!("→ SQL: {translated}");
         Some(&translated)
@@ -4614,10 +4670,7 @@ async fn cmd_verify_audit_package(file: &std::path::Path) -> Result<()> {
             report.entry_count
         );
         if !report.root_hex.is_empty() {
-            println!(
-                "  Merkle root : {}",
-                &report.root_hex
-            );
+            println!("  Merkle root : {}", &report.root_hex);
         }
         match report.sig_status {
             audit_package::SigStatus::Valid => {
@@ -4672,7 +4725,8 @@ async fn cmd_reconcile(
         anyhow::bail!("Not initialised at: {}", data_dir.display());
     }
 
-    let mut ledger = vledger_ledger::LedgerStore::open(data_dir).context("Failed to open ledger")?;
+    let mut ledger =
+        vledger_ledger::LedgerStore::open(data_dir).context("Failed to open ledger")?;
 
     // Fix #38: use reconcile_and_record() so every run is persisted to the WAL.
     let (discrepancies, record) = ledger
@@ -5768,8 +5822,9 @@ async fn cmd_import(
         let idem_key = if let Some(ref id_col) = id_column {
             // Read the value of the named source column directly from raw_fields
             // (pre-mapping original column names → values).
-            match row.raw_fields
-                .get(id_col.as_ref() as &str)
+            match row
+                .raw_fields
+                .get(id_col as &str)
                 .filter(|v| !v.is_empty())
                 .cloned()
             {
@@ -5777,7 +5832,11 @@ async fn cmd_import(
                 None => {
                     // Column not found or empty — fall back to row-position hash.
                     let raw = format!("{}:row:{}", id_col, row_num);
-                    format!("id:{}:{}", id_col, hex::encode(blake3::hash(raw.as_bytes()).as_bytes()))
+                    format!(
+                        "id:{}:{}",
+                        id_col,
+                        hex::encode(blake3::hash(raw.as_bytes()).as_bytes())
+                    )
                 }
             }
         } else {
@@ -6282,8 +6341,6 @@ fn row_from_map(
     })
 }
 
-
-
 // ── migrate-to-sqlite ─────────────────────────────────────────────────────────
 
 /// One-time migration: read WAL records and populate the SQLite entry index.
@@ -6299,8 +6356,8 @@ fn row_from_map(
 async fn cmd_migrate_to_sqlite(data_dir: &std::path::Path) -> anyhow::Result<()> {
     use vledger_ledger::entry_db::EntryDb;
     use vledger_ledger::wal_checkpoint::WalCheckpoint;
-    use vledger_wal::recovery::recover_streaming;
     use vledger_wal::record::MutationKind;
+    use vledger_wal::recovery::recover_streaming;
 
     println!("── VectorLedger SQLite Migration ──────────────────────");
     println!("  Populating SQLite index from WAL records.");
@@ -6342,73 +6399,66 @@ async fn cmd_migrate_to_sqlite(data_dir: &std::path::Path) -> anyhow::Result<()>
     let mut skipped: u64 = 0;
     let start = std::time::Instant::now();
 
-    let result = recover_streaming::<anyhow::Error, _>(
-        &wal_dir,
-        None,
-        false,
-        None,
-        0,
-        |tx| {
-            for payload in tx.data_payloads {
-                if !matches!(payload.mutation, MutationKind::Insert | MutationKind::Update) {
-                    continue;
-                }
+    let result = recover_streaming::<anyhow::Error, _>(&wal_dir, None, false, None, 0, |tx| {
+        for payload in tx.data_payloads {
+            if !matches!(
+                payload.mutation,
+                MutationKind::Insert | MutationKind::Update
+            ) {
+                continue;
+            }
 
-                // table_id=0: account creation/update — persist to SQLite accounts table.
-                if payload.table_id == 0 && !payload.row_data.is_empty() {
-                    if let Ok((account, _)) = bincode::serde::decode_from_slice::<
-                        vledger_ledger::account::Account,
-                        _,
-                    >(
-                        &payload.row_data, bincode::config::standard()
-                    ) {
-                        let _ = entry_db.upsert_account(&account);
-                    }
-                    continue;
-                }
-
-                if payload.table_id != 1 || payload.row_data.is_empty() {
-                    continue;
-                }
-
-                let entry: vledger_ledger::entry::JournalEntry =
-                    bincode::serde::decode_from_slice(
+            // table_id=0: account creation/update — persist to SQLite accounts table.
+            if payload.table_id == 0 && !payload.row_data.is_empty() {
+                if let Ok((account, _)) =
+                    bincode::serde::decode_from_slice::<vledger_ledger::account::Account, _>(
                         &payload.row_data,
                         bincode::config::standard(),
                     )
+                {
+                    let _ = entry_db.upsert_account(&account);
+                }
+                continue;
+            }
+
+            if payload.table_id != 1 || payload.row_data.is_empty() {
+                continue;
+            }
+
+            let entry: vledger_ledger::entry::JournalEntry =
+                bincode::serde::decode_from_slice(&payload.row_data, bincode::config::standard())
                     .map(|(e, _)| e)
                     .map_err(|e| anyhow::anyhow!("decode entry: {e}"))?;
 
-                if entry.sequence <= start_seq {
-                    skipped += 1;
-                    continue;
-                }
-
-                batch.push(entry);
-
-                if batch.len() >= BATCH_SIZE {
-                    let n = entry_db
-                        .bulk_insert_migration(&batch)
-                        .map_err(|e| anyhow::anyhow!("bulk_insert: {e}"))?;
-                    indexed += n;
-                    batch.clear();
-
-                    let elapsed = start.elapsed().as_secs_f64().max(0.001);
-                    let tps = indexed as f64 / elapsed;
-                    let pct = if est_total > 0 {
-                        (indexed + already_indexed) * 100 / est_total
-                    } else {
-                        0
-                    };
-                    eprint!(
-                        "\r  Entries: {:>12}  ~{}%  ({:.0}/sec)    ",
-                        indexed, pct, tps
-                    );
-                }
+            if entry.sequence <= start_seq {
+                skipped += 1;
+                continue;
             }
-            Ok(())
-        },
-    );
+
+            batch.push(entry);
+
+            if batch.len() >= BATCH_SIZE {
+                let n = entry_db
+                    .bulk_insert_migration(&batch)
+                    .map_err(|e| anyhow::anyhow!("bulk_insert: {e}"))?;
+                indexed += n;
+                batch.clear();
+
+                let elapsed = start.elapsed().as_secs_f64().max(0.001);
+                let tps = indexed as f64 / elapsed;
+                let pct = if est_total > 0 {
+                    (indexed + already_indexed) * 100 / est_total
+                } else {
+                    0
+                };
+                eprint!(
+                    "\r  Entries: {:>12}  ~{}%  ({:.0}/sec)    ",
+                    indexed, pct, tps
+                );
+            }
+        }
+        Ok(())
+    });
 
     // Flush final partial batch.
     if !batch.is_empty() {
@@ -6548,7 +6598,9 @@ async fn cmd_mcp(
         if std::net::TcpStream::connect_timeout(
             &addr.parse().unwrap(),
             std::time::Duration::from_millis(200),
-        ).is_ok() {
+        )
+        .is_ok()
+        {
             Some(addr.to_string())
         } else {
             None
@@ -6560,11 +6612,11 @@ async fn cmd_mcp(
         username: resolved_username.clone(),
         password: resolved_password.clone(),
         monthly_limit: match license.tier {
-            vledger_license::LicenseTier::Starter    => vledger_mcp::LIMIT_STARTER,
-            vledger_license::LicenseTier::Growth      => vledger_mcp::LIMIT_GROWTH,
-            vledger_license::LicenseTier::Enterprise  => vledger_mcp::LIMIT_UNLIMITED,
+            vledger_license::LicenseTier::Starter => vledger_mcp::LIMIT_STARTER,
+            vledger_license::LicenseTier::Growth => vledger_mcp::LIMIT_GROWTH,
+            vledger_license::LicenseTier::Enterprise => vledger_mcp::LIMIT_UNLIMITED,
             // Free is already blocked above; this arm is unreachable but must compile.
-            vledger_license::LicenseTier::Free        => vledger_mcp::LIMIT_STARTER,
+            vledger_license::LicenseTier::Free => vledger_mcp::LIMIT_STARTER,
         },
         data_dir: data_dir.clone(),
         session_timeout_secs: 30 * 60, // 30 minutes
@@ -6573,7 +6625,9 @@ async fn cmd_mcp(
     let shutdown = tokio_util::sync::CancellationToken::new();
     let shutdown_clone = shutdown.clone();
     tokio::spawn(async move {
-        tokio::signal::ctrl_c().await.expect("Failed to listen for Ctrl-C");
+        tokio::signal::ctrl_c()
+            .await
+            .expect("Failed to listen for Ctrl-C");
         info!("Shutdown signal received — stopping MCP server");
         shutdown_clone.cancel();
     });
@@ -6600,10 +6654,14 @@ async fn cmd_mcp(
             &resolved_username,
             &resolved_password,
             ca_cert,
-        ).await.with_context(|| format!(
-            "Failed to connect MCP server to vledger at {addr}.\n\
+        )
+        .await
+        .with_context(|| {
+            format!(
+                "Failed to connect MCP server to vledger at {addr}.\n\
              Make sure `vledger start` is running and the credentials are correct."
-        ))?;
+            )
+        })?;
 
         vledger_mcp::McpServer::new_network(config, Arc::new(conn))
             .run(shutdown)
@@ -6624,7 +6682,13 @@ async fn cmd_mcp(
         println!("  SSE endpoint : http://{bind}/sse");
         println!("  Health check : http://{bind}/health");
         println!("  Tools        : 15 (7 query/write + 5 reasoning + 1 identity + 2 correction)");
-        println!("  Agent Queries: {}", match config.monthly_limit { 0 => "unlimited".to_string(), n => format!("{n}/month") });
+        println!(
+            "  Agent Queries: {}",
+            match config.monthly_limit {
+                0 => "unlimited".to_string(),
+                n => format!("{n}/month"),
+            }
+        );
         println!();
         println!("Point your MCP client at: http://{bind}/sse");
         println!("Press Ctrl-C to stop.");
@@ -6632,13 +6696,13 @@ async fn cmd_mcp(
 
         let catalog_dir = data_dir.join("catalog");
         let user_store = Arc::new(
-            vledger_server::UserStore::open(&catalog_dir)
-                .context("Failed to open user store")?,
+            vledger_server::UserStore::open(&catalog_dir).context("Failed to open user store")?,
         );
         let ledger = Arc::new(RwLock::new(
-            vledger_ledger::LedgerStore::open(data_dir)
-                .context("Failed to open ledger — is `vledger start` already running?\n\
-                          If so, use: vledger mcp --server 127.0.0.1:5433")?,
+            vledger_ledger::LedgerStore::open(data_dir).context(
+                "Failed to open ledger — is `vledger start` already running?\n\
+                          If so, use: vledger mcp --server 127.0.0.1:5433",
+            )?,
         ));
 
         vledger_mcp::McpServer::new(config, ledger, user_store)
@@ -6657,17 +6721,14 @@ async fn cmd_ingest(
     audit_package: Option<&std::path::Path>,
     domain: &str,
 ) -> Result<()> {
-    use vledger_banno_connector::{BannoConfig, BannoConnector};
     use vledger_banking_core::CoreBankingConnector;
+    use vledger_banno_connector::{BannoConfig, BannoConnector};
     use vledger_ingest::IngestPipeline;
 
     // Ensure data directory subdirectories exist
-    std::fs::create_dir_all(data_dir.join("wal"))
-        .context("Failed to create WAL directory")?;
-    std::fs::create_dir_all(data_dir.join("pages"))
-        .context("Failed to create pages directory")?;
-    std::fs::create_dir_all(data_dir.join("audit"))
-        .context("Failed to create audit directory")?;
+    std::fs::create_dir_all(data_dir.join("wal")).context("Failed to create WAL directory")?;
+    std::fs::create_dir_all(data_dir.join("pages")).context("Failed to create pages directory")?;
+    std::fs::create_dir_all(data_dir.join("audit")).context("Failed to create audit directory")?;
 
     // Audit package path — default to timestamped file in cwd
     let audit_package_path = match audit_package {

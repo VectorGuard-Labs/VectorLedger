@@ -67,8 +67,8 @@ impl BannoConfig {
 
         let redirect_uri = std::env::var("BANNO_REDIRECT_URI")
             .unwrap_or_else(|_| "http://localhost:8080/dynamic".to_string());
-        let base_url = std::env::var("BANNO_BASE_URL")
-            .unwrap_or_else(|_| GARDEN_BASE_URL.to_string());
+        let base_url =
+            std::env::var("BANNO_BASE_URL").unwrap_or_else(|_| GARDEN_BASE_URL.to_string());
         let redirect_port = std::env::var("BANNO_REDIRECT_PORT")
             .ok()
             .and_then(|p| p.parse().ok())

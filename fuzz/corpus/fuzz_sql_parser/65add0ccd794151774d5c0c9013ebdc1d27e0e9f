@@ -1,0 +1,1 @@
+SELECT COUNT sequ FROM T seq F

@@ -1,0 +1,1 @@
+INSERT INTO accounts (code,na,account_type,currency,do-ain) VALUES ('A','\B','sest','\USD',J	est')

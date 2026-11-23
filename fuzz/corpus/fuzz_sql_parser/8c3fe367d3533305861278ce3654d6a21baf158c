@@ -1,0 +1,1 @@
+SELECT NUMBER() OVER () AS r FROM ledgerouSELECT ROW_(ype,cuerrncy) VS 

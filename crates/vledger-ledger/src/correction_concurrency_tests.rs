@@ -130,12 +130,7 @@ mod tests {
                 .build();
             let orig_seq = g.post_entry(entry).unwrap();
 
-            (
-                cash_account_id,
-                rev_account_id,
-                orig_uuid,
-                orig_seq,
-            )
+            (cash_account_id, rev_account_id, orig_uuid, orig_seq)
         };
 
         (store, cash_id, rev_id, orig_uuid, orig_seq)
@@ -246,7 +241,7 @@ mod tests {
     async fn concurrent_correction_idempotency() {
         const CONCURRENCY: usize = 20;
         const ORIGINAL_AMOUNT: i64 = 10_000; // $100.00
-        const CORRECT_AMOUNT: i64 = 8_500;   // $85.00
+        const CORRECT_AMOUNT: i64 = 8_500; // $85.00
 
         let dir = setup_dir();
         let (store, cash_id, rev_id, orig_uuid, _orig_seq) =
@@ -297,12 +292,10 @@ mod tests {
         let first = results[0];
         for (i, result) in results.iter().enumerate() {
             assert_eq!(
-                *result,
-                first,
+                *result, first,
                 "task {i} returned {:?} but task 0 returned {:?}; \
                  all callers must receive the winning result, not a divergent one",
-                result,
-                first
+                result, first
             );
         }
 
@@ -329,12 +322,10 @@ mod tests {
         // ── Assert 5: CASH balance = original - original + correct = correct
         let cash_balance = g.balance(&cash_id);
         assert_eq!(
-            cash_balance,
-            CORRECT_AMOUNT as i128,
+            cash_balance, CORRECT_AMOUNT as i128,
             "CASH balance after correction should be CORRECT_AMOUNT ({}) \
              but got {} — net balance is wrong",
-            CORRECT_AMOUNT,
-            cash_balance
+            CORRECT_AMOUNT, cash_balance
         );
 
         // ── Assert 6: hash chain must be intact
@@ -440,13 +431,12 @@ mod tests {
         // ── Manually post only the reversal (simulating a crash before correction)
         {
             let rev_amount = Amount::new(ORIGINAL_AMOUNT).unwrap();
-            let rev_entry =
-                JournalEntryBuilder::new(format!("Reversal — {orig_uuid}"), "test")
-                    .debit(rev_account_id, rev_amount, "USD")
-                    .credit(cash_account_id, rev_amount, "USD")
-                    .external_ref(&reversal_idem_key)
-                    .idempotency_key(&reversal_idem_key)
-                    .build();
+            let rev_entry = JournalEntryBuilder::new(format!("Reversal — {orig_uuid}"), "test")
+                .debit(rev_account_id, rev_amount, "USD")
+                .credit(cash_account_id, rev_amount, "USD")
+                .external_ref(&reversal_idem_key)
+                .idempotency_key(&reversal_idem_key)
+                .build();
             let mut g = store.write().await;
             g.post_entry(rev_entry).unwrap();
         }
@@ -454,7 +444,11 @@ mod tests {
         // Ledger now has: original + reversal (correction missing).
         {
             let g = store.read().await;
-            assert_eq!(g.entry_count(), 2, "should have original + reversal only at this point");
+            assert_eq!(
+                g.entry_count(),
+                2,
+                "should have original + reversal only at this point"
+            );
         }
 
         // ── Retry the full correction workflow ────────────────────────────
@@ -536,11 +530,7 @@ mod tests {
                     .build();
                 let seq = g.post_entry(entry).unwrap();
                 let stored = g.get_entry_by_sequence(seq).unwrap();
-                unrelated_snapshots.push((
-                    stored.sequence,
-                    stored.content_hash,
-                    stored.chain_hash,
-                ));
+                unrelated_snapshots.push((stored.sequence, stored.content_hash, stored.chain_hash));
             }
         }
 
@@ -563,13 +553,11 @@ mod tests {
                 .unwrap_or_else(|| panic!("unrelated entry at seq {seq} missing after correction"));
 
             assert_eq!(
-                entry.content_hash,
-                *expected_content_hash,
+                entry.content_hash, *expected_content_hash,
                 "content_hash of unrelated entry at seq {seq} was mutated — append-only violated"
             );
             assert_eq!(
-                entry.chain_hash,
-                *expected_chain_hash,
+                entry.chain_hash, *expected_chain_hash,
                 "chain_hash of unrelated entry at seq {seq} was mutated — append-only violated"
             );
         }
@@ -673,8 +661,7 @@ mod tests {
         let g = store.read().await;
         let version = g.entry_db().schema_version().unwrap();
         assert_eq!(
-            version,
-            2,
+            version, 2,
             "expected schema version 2 (CHECK constraints + append-only triggers); \
              got {version} — apply_schema_migrations may not have run"
         );
@@ -708,20 +695,22 @@ mod tests {
         let entry_db = EntryDb::open(&db_path).unwrap();
 
         // Confirm migration ran.
-        assert_eq!(entry_db.schema_version().unwrap(), 2,
-            "schema must be at version 2 before this test is meaningful");
+        assert_eq!(
+            entry_db.schema_version().unwrap(),
+            2,
+            "schema must be at version 2 before this test is meaningful"
+        );
 
         // Build two minimal JournalEntry values that share an idempotency key
         // but have different sequence numbers (different PKs).
         let shared_key = "test-unique-constraint-key";
         let make_entry = |seq: u64| {
             use crate::entry::JournalEntryBuilder;
-            use crate::account::{Account, AccountType};
 
             // We need valid AccountIds — use fixed UUIDs.
             let cash = uuid::Uuid::parse_str("00000000-0000-0000-0000-000000000001").unwrap();
-            let rev  = uuid::Uuid::parse_str("00000000-0000-0000-0000-000000000002").unwrap();
-            let amt  = crate::amount::Amount::new(100).unwrap();
+            let rev = uuid::Uuid::parse_str("00000000-0000-0000-0000-000000000002").unwrap();
+            let amt = crate::amount::Amount::new(100).unwrap();
 
             let mut entry = JournalEntryBuilder::new("test entry", "test")
                 .debit(cash, amt, "USD")
@@ -733,7 +722,7 @@ mod tests {
             // insert directly into EntryDb without going through LedgerStore.
             entry.sequence = seq;
             entry.content_hash = [seq as u8; 32];
-            entry.chain_hash   = [seq as u8 + 100; 32];
+            entry.chain_hash = [seq as u8 + 100; 32];
             entry
         };
 
@@ -742,7 +731,11 @@ mod tests {
 
         // Insert first entry — must succeed.
         entry_db.insert(&entry_a).unwrap();
-        assert_eq!(entry_db.count().unwrap(), 1, "first insert must write 1 row");
+        assert_eq!(
+            entry_db.count().unwrap(),
+            1,
+            "first insert must write 1 row"
+        );
 
         // Insert second entry with same idempotency_key — must be silently ignored.
         entry_db.insert(&entry_b).unwrap();

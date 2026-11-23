@@ -11,8 +11,6 @@
 //! replication_tests.rs unit tests, and collision resistance is a mathematical
 //! property of BLAKE3 (see the BLAKE3 paper, §5).
 
-use vledger_replication::protocol::{compute_mac, mac_eq};
-
 // ── Harness 1: mac_eq reflexive ───────────────────────────────────────────────
 
 /// Prove that mac_eq(a, a) is always true for any 32-byte array.
@@ -45,7 +43,10 @@ pub fn mac_eq_false_when_different() {
     let a: [u8; 32] = kani::any();
     let b: [u8; 32] = kani::any();
     if a != b {
-        assert!(!mac_eq(&a, &b), "mac_eq must return false when inputs differ");
+        assert!(
+            !mac_eq(&a, &b),
+            "mac_eq must return false when inputs differ"
+        );
     }
 }
 

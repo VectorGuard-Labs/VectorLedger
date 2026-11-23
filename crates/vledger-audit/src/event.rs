@@ -67,6 +67,13 @@ pub enum AuditEventKind {
         size_bytes: u64,
         caller_id: String,
     },
+    /// The full ledger was exported with `vledger export`.
+    LedgerExported {
+        path: String,
+        entry_count: u64,
+        chain_tip_hex: String,
+        caller_id: String,
+    },
     /// Key rotation process was initiated.
     KeyRotationStarted {
         key_ids: Vec<String>,
@@ -91,6 +98,7 @@ impl AuditEventKind {
             Self::FourEyesApproved { .. } => "four_eyes_approved",
             Self::FourEyesRejected { .. } => "four_eyes_rejected",
             Self::BackupCreated { .. } => "backup_created",
+            Self::LedgerExported { .. } => "ledger_exported",
             Self::KeyRotationStarted { .. } => "key_rotation_started",
             Self::ServerStarted { .. } => "server_started",
         }

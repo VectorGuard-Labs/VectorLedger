@@ -1,0 +1,1 @@
+SELECT ROW_NUMBER() OVER( A )S#rn FROM Oger

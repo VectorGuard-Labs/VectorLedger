@@ -1,0 +1,1 @@
+INSERT INTO accounts (code,name,account_type,currency,domain) VALUES ('A',code,nt_typame,ac,'\USD','	est')

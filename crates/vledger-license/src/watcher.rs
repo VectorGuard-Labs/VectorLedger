@@ -113,7 +113,7 @@ fn seconds_until_next_midnight() -> u64 {
     let now = Utc::now();
     let seconds_today = now.timestamp() % 86_400; // seconds elapsed since midnight
     let remaining = 86_400 - seconds_today; // seconds until next midnight
-    // remaining is always 1..=86400 (positive i64). Cast to u64 is safe.
+                                            // remaining is always 1..=86400 (positive i64). Cast to u64 is safe.
     u64::try_from(remaining.max(1)).unwrap_or(1)
 }
 

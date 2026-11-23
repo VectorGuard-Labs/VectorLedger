@@ -34,9 +34,18 @@ mod tests {
         assert_eq!(rec.submitter_id, "alice");
         assert_eq!(rec.description, "Wire transfer $10k");
         assert_eq!(rec.domain, "payments");
-        assert!(rec.approver_id.is_none(), "approver must be None on submission");
-        assert!(rec.decided_at.is_none(), "decided_at must be None on submission");
-        assert!(!rec.entry_payload_hex.is_empty(), "payload must be hex-encoded");
+        assert!(
+            rec.approver_id.is_none(),
+            "approver must be None on submission"
+        );
+        assert!(
+            rec.decided_at.is_none(),
+            "decided_at must be None on submission"
+        );
+        assert!(
+            !rec.entry_payload_hex.is_empty(),
+            "payload must be hex-encoded"
+        );
         assert_eq!(
             rec.entry_payload_hex,
             hex::encode(payload),
@@ -88,7 +97,10 @@ mod tests {
 
         assert_eq!(approved.status, ApprovalStatus::Approved);
         assert_eq!(approved.approver_id.as_deref(), Some("bob"));
-        assert!(approved.decided_at.is_some(), "decided_at must be set after approval");
+        assert!(
+            approved.decided_at.is_some(),
+            "decided_at must be set after approval"
+        );
         assert_eq!(
             posted_bytes.as_deref(),
             Some(b"payload" as &[u8]),
@@ -130,8 +142,15 @@ mod tests {
         assert_eq!(rejected.status, ApprovalStatus::Rejected);
         assert_eq!(rejected.approver_id.as_deref(), Some("bob"));
         assert_eq!(rejected.reject_reason.as_deref(), Some(reason));
-        assert!(rejected.decided_at.is_some(), "decided_at must be set on rejection");
-        assert_eq!(queue.list_pending().len(), 0, "rejected record must leave pending");
+        assert!(
+            rejected.decided_at.is_some(),
+            "decided_at must be set on rejection"
+        );
+        assert_eq!(
+            queue.list_pending().len(),
+            0,
+            "rejected record must leave pending"
+        );
     }
 
     /// After rejection, record is removed from pending.
@@ -178,7 +197,10 @@ mod tests {
 
         let pending = queue.list_pending();
         assert_eq!(pending.len(), 1, "only r3 must remain pending");
-        assert_eq!(pending[0].id, r3.id, "r3 must be the remaining pending record");
+        assert_eq!(
+            pending[0].id, r3.id,
+            "r3 must be the remaining pending record"
+        );
     }
 
     /// get returns None for a completely unknown UUID.
@@ -217,7 +239,9 @@ mod tests {
         let dir = TempDir::new().unwrap();
         let record_id = {
             let queue = FourEyesQueue::open(dir.path()).unwrap();
-            let rec = queue.submit(b"entry-data", "Test transaction", "test", "alice").unwrap();
+            let rec = queue
+                .submit(b"entry-data", "Test transaction", "test", "alice")
+                .unwrap();
             rec.id
         }; // queue dropped here
 
@@ -248,7 +272,11 @@ mod tests {
 
         let queue2 = FourEyesQueue::open(dir.path()).unwrap();
         // Record was approved — it is no longer in pending
-        assert_eq!(queue2.list_pending().len(), 0, "no pending records after approval");
+        assert_eq!(
+            queue2.list_pending().len(),
+            0,
+            "no pending records after approval"
+        );
         // get() searches pending only — approved record is not returned
         assert!(
             queue2.get(record_id).is_none(),
@@ -267,7 +295,10 @@ mod tests {
 
         let queue2 = FourEyesQueue::open(dir.path()).unwrap();
         let result = queue2.approve(record_id, "bob", |_| Ok(()));
-        assert!(result.is_ok(), "pending record must be approvable after reopen");
+        assert!(
+            result.is_ok(),
+            "pending record must be approvable after reopen"
+        );
         assert_eq!(queue2.list_pending().len(), 0);
     }
 
@@ -295,7 +326,10 @@ mod tests {
             Ok(())
         });
         assert!(result.is_ok(), "second approve must return Ok (idempotent)");
-        assert_eq!(call_count, 1, "post_fn must be called exactly once regardless of retries");
+        assert_eq!(
+            call_count, 1,
+            "post_fn must be called exactly once regardless of retries"
+        );
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -339,7 +373,7 @@ mod tests {
     #[test]
     fn open_with_audit_emits_audit_events() {
         use std::sync::Arc;
-        use vledger_audit::{AuditEventKind, AuditLog};
+        use vledger_audit::AuditLog;
 
         let dir = TempDir::new().unwrap();
         let audit_path = dir.path().join("audit.log");
@@ -347,8 +381,7 @@ mod tests {
 
         let queue_dir = dir.path().join("foureyes");
         std::fs::create_dir_all(&queue_dir).unwrap();
-        let queue =
-            FourEyesQueue::open_with_audit(&queue_dir, Arc::clone(&audit_log)).unwrap();
+        let queue = FourEyesQueue::open_with_audit(&queue_dir, Arc::clone(&audit_log)).unwrap();
 
         // Submit
         let rec = queue.submit(b"e", "d", "domain", "alice").unwrap();
@@ -357,6 +390,9 @@ mod tests {
 
         // Verify audit log has events
         let count = audit_log.verify_chain().unwrap();
-        assert!(count >= 2, "must have at least 2 audit events (submitted + approved), got {count}");
+        assert!(
+            count >= 2,
+            "must have at least 2 audit events (submitted + approved), got {count}"
+        );
     }
 }

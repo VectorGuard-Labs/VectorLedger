@@ -1,0 +1,1 @@
+SELECT COUNT(s=quence) FROM ledger

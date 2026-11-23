@@ -98,12 +98,10 @@ impl std::str::FromStr for WalSyncMode {
             #[cfg(feature = "dev-no-sync")]
             "no_sync" | "none" => Ok(Self::NoSync),
             #[cfg(not(feature = "dev-no-sync"))]
-            "no_sync" | "none" => Err(
-                "no_sync WAL mode is not available in this build. \
+            "no_sync" | "none" => Err("no_sync WAL mode is not available in this build. \
                  Rebuild with --features vledger-wal/dev-no-sync for development use only. \
                  Use group_commit (recommended) or per_record instead."
-                    .into(),
-            ),
+                .into()),
             other => Err(format!(
                 "unknown wal_sync_mode '{other}' — use: per_record, group_commit"
             )),
@@ -238,7 +236,8 @@ impl WalWriter {
                 &wal_dir.join(crate::segment::segment_filename(last_idx)),
                 last_idx,
                 master_key.as_ref(),
-            ).unwrap_or(0);
+            )
+            .unwrap_or(0);
             (seg, last_idx + 1, last_seq)
         };
 

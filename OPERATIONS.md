@@ -789,6 +789,23 @@ vledger rotate-keys \
 
 ---
 
+### `vledger export`
+
+Export all ledger data (accounts, balances, journal entries, journal lines) to a directory of CSV and JSONL files with a BLAKE3 manifest. Used for migration and decommissioning; see [DECOMMISSION.md](./DECOMMISSION.md).
+
+```bash
+vledger export --data-dir /var/lib/vledger/data --output /secure/export-2026-11-16
+```
+
+| Flag | Default | Description |
+|---|---|---|
+| `-o, --output <DIR>` | required | Output directory. Must not exist or must be empty. Created with mode `0700`; files `0600`. |
+| `--allow-unverified` | off | Export even if hash-chain verification fails. The manifest records `chain_verified: false`. |
+
+Works on every license tier, including Free and after a license has lapsed. Offline command: the server must be stopped, because it needs the data directory lock. The hash chain is verified before anything is written. Exits non-zero if any account balance differs from the journal.
+
+---
+
 ### `vledger audit-export`
 
 Export the WORM audit log to JSON or CSV.
@@ -1302,6 +1319,8 @@ echo "Old backups pruned"
 ---
 
 ## 7. Backup and Restore
+
+> **Decommissioning or migrating?** See [DECOMMISSION.md](./DECOMMISSION.md). Always prove a backup restores (`vledger restore` into a scratch directory, then `vledger verify`) before relying on it. Backups taken with versions before the Unreleased changelog entry from a symlinked or relative data directory may be unrestorable; check with `tar tf <archive>` that entry names look like `wal/…`, not `wal//…`.
 
 ### Create a Backup
 
@@ -1943,6 +1962,8 @@ nohup vledger start --data-dir /var/lib/vledger/data --pgwire &
 - Checked at startup and at UTC midnight daily via a background watcher
 - Paid features are disabled at the next midnight tick on expiry — no restart required
 - Free tier operates indefinitely with no license file
+
+**What happens to your data when a license lapses.** Nothing is locked. The ledger, hash chain, and all stored data remain readable and writable on the Free tier. Only paid features switch off: the pgwire listener, replication, MCP/AI features, `compliance-report`, HSM key-source setup and key rotation, and audit-log export beyond the tier window (Free 30 days, Starter 90 days). `vledger export`, `backup`, `restore`, `verify`, `reconcile`, and `audit-package` keep working on every tier. If you intend to leave VectorLedger, follow [DECOMMISSION.md](./DECOMMISSION.md) and finish the exports while the license is still active.
 
 Contact **pavon@vectorguardlabs.com** at least 30 days before expiry.
 

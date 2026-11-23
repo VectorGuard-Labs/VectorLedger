@@ -82,7 +82,7 @@ impl IngestReport {
         println!("║    Integrity: {:<47} ║", verified_str);
         if let Some(ref path) = self.audit_package_path {
             let display = if path.len() > 47 {
-                format!("...{}", &path[path.len()-44..])
+                format!("...{}", &path[path.len() - 44..])
             } else {
                 path.clone()
             };
@@ -91,7 +91,8 @@ impl IngestReport {
             println!("║    {:<58} ║", display);
         }
         println!("╠══════════════════════════════════════════════════════════════╣");
-        let duration = self.completed_at
+        let duration = self
+            .completed_at
             .signed_duration_since(self.started_at)
             .num_milliseconds();
         println!("║  Duration: {:<51} ║", format!("{duration} ms"));

@@ -56,3 +56,17 @@ dist/
 *-checksums.txt
 *-checksums-sha256.txt
 CHEATSHEET.md
+
+# Fuzzer / mutation-testing build output (crash artifacts under fuzz/artifacts are kept on purpose)
+/fuzz/target/
+/mutants.out/
+mutants.out.old/
+nohup.out
+
+# Local demo output and scratch files
+/demo-data/
+/demo-audit-package*.json
+/dist*/
+/vledger-v*-linux-*.tar.gz
+/vledger-v*-macos-*.tar.gz
+

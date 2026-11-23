@@ -18,10 +18,7 @@ mod tests {
     use crate::{
         client::{default_pyhsm_address, HsmClient},
         error::HsmError,
-        pkcs11::{
-            AwsCloudHsmConfig, AwsCloudHsmProvider, AzureHsmConfig, AzureHsmProvider,
-            HsmProviderConfig, SoftHsmProvider,
-        },
+        pkcs11::{AwsCloudHsmConfig, AzureHsmConfig, HsmProviderConfig},
         protocol::KeyPolicy,
         remote::{HsmTransport, RemotePyHsmConfig},
     };
@@ -83,7 +80,10 @@ mod tests {
         let id42 = HsmClient::table_encrypt_key_id(42);
 
         assert!(!id0.is_empty(), "key ID must not be empty");
-        assert_ne!(id0, id1, "different table IDs must produce different key IDs");
+        assert_ne!(
+            id0, id1,
+            "different table IDs must produce different key IDs"
+        );
         assert!(
             id42.contains("42"),
             "key ID must embed the table ID: {id42}"
@@ -97,7 +97,10 @@ mod tests {
         let commit_id = HsmClient::commit_signing_key_id();
         assert!(!wal_id.is_empty());
         assert!(!commit_id.is_empty());
-        assert_ne!(wal_id, commit_id, "WAL and commit signing key IDs must differ");
+        assert_ne!(
+            wal_id, commit_id,
+            "WAL and commit signing key IDs must differ"
+        );
     }
 
     /// default_pyhsm_address is not empty.
@@ -137,8 +140,14 @@ mod tests {
     #[test]
     fn key_policy_encrypt_decrypt_enables_both() {
         let policy = KeyPolicy::encrypt_decrypt();
-        assert!(policy.allow_encrypt, "encrypt_decrypt policy must allow encryption");
-        assert!(policy.allow_decrypt, "encrypt_decrypt policy must allow decryption");
+        assert!(
+            policy.allow_encrypt,
+            "encrypt_decrypt policy must allow encryption"
+        );
+        assert!(
+            policy.allow_decrypt,
+            "encrypt_decrypt policy must allow decryption"
+        );
     }
 
     /// KeyPolicy::sign_only disables encrypt/decrypt.
@@ -173,8 +182,8 @@ mod tests {
         };
         let json = serde_json::to_string(&policy).unwrap();
         let decoded: KeyPolicy = serde_json::from_str(&json).unwrap();
-        assert_eq!(decoded.allow_encrypt, true);
-        assert_eq!(decoded.allow_decrypt, false);
+        assert!(decoded.allow_encrypt);
+        assert!(!decoded.allow_decrypt);
         assert_eq!(decoded.max_operations, Some(1_000));
         assert_eq!(decoded.expires_at.as_deref(), Some("2027-12-31"));
     }
@@ -210,7 +219,10 @@ mod tests {
             timeout_ms: 5000,
             max_retries: 3,
         };
-        assert!(cfg.host_port().is_err(), "malformed endpoint must return error");
+        assert!(
+            cfg.host_port().is_err(),
+            "malformed endpoint must return error"
+        );
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -223,7 +235,9 @@ mod tests {
         let errors = vec![
             HsmError::Ipc("ipc error".into()),
             HsmError::Remote("remote error".into()),
-            HsmError::SocketNotFound { path: "/tmp/pyhsm.sock".into() },
+            HsmError::SocketNotFound {
+                path: "/tmp/pyhsm.sock".into(),
+            },
             HsmError::Timeout { ms: 5000 },
             HsmError::KeyNotFound("my-key".into()),
             HsmError::PolicyViolation("encrypt not allowed".into()),
@@ -232,14 +246,19 @@ mod tests {
         ];
         for err in errors {
             let msg = err.to_string();
-            assert!(!msg.is_empty(), "HsmError display must not be empty: {err:?}");
+            assert!(
+                !msg.is_empty(),
+                "HsmError display must not be empty: {err:?}"
+            );
         }
     }
 
     /// SocketNotFound error message includes the path.
     #[test]
     fn socket_not_found_message_includes_path() {
-        let err = HsmError::SocketNotFound { path: "/var/run/pyhsm.sock".into() };
+        let err = HsmError::SocketNotFound {
+            path: "/var/run/pyhsm.sock".into(),
+        };
         assert!(
             err.to_string().contains("/var/run/pyhsm.sock"),
             "SocketNotFound message must include the socket path"
@@ -283,7 +302,9 @@ mod tests {
     /// HsmProviderConfig serialises and deserialises correctly.
     #[test]
     fn hsm_provider_config_serde_roundtrip() {
-        let cfg = HsmProviderConfig::Soft { socket_path: Some("/tmp/pyhsm.sock".into()) };
+        let cfg = HsmProviderConfig::Soft {
+            socket_path: Some("/tmp/pyhsm.sock".into()),
+        };
         let json = serde_json::to_string(&cfg).unwrap();
         let back: HsmProviderConfig = serde_json::from_str(&json).unwrap();
         match back {

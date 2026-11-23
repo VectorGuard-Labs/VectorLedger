@@ -582,7 +582,8 @@ impl UserStore {
 
     /// List all users (without password hashes).
     pub fn list_users(&self) -> Vec<(String, Role, bool)> {
-        self.users            .read()
+        self.users
+            .read()
             .unwrap_or_else(|p| p.into_inner())
             .values()
             .map(|u| (u.username.clone(), u.role, u.enabled))

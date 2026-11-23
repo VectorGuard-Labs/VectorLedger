@@ -7,12 +7,11 @@ use chrono::{DateTime, Utc};
 use tracing::warn;
 
 use vledger_banking_core::{
-    CoreBankingError,
     types::{
-        AccountStatus, AccountType, Currency, MinorUnits,
-        NormalizedAccount, NormalizedTransaction,
+        AccountStatus, AccountType, Currency, MinorUnits, NormalizedAccount, NormalizedTransaction,
         TransactionStatus, TransactionType,
     },
+    CoreBankingError,
 };
 
 use crate::response::{RawAccount, RawTransaction};
@@ -55,7 +54,7 @@ pub fn map_account(raw: &RawAccount) -> Result<NormalizedAccount, CoreBankingErr
     let fetched_at = raw
         .fetched_date
         .as_deref()
-        .and_then(|d| parse_datetime(d))
+        .and_then(parse_datetime)
         .unwrap_or_else(Utc::now);
 
     let institution = raw.institution.as_ref();
@@ -80,23 +79,23 @@ pub fn map_account(raw: &RawAccount) -> Result<NormalizedAccount, CoreBankingErr
 
 fn map_account_type(s: Option<&str>) -> AccountType {
     match s.unwrap_or("").to_lowercase().as_str() {
-        "deposit"    => AccountType::Deposit,
-        "loan"       => AccountType::Loan,
+        "deposit" => AccountType::Deposit,
+        "loan" => AccountType::Loan,
         "investment" => AccountType::Investment,
-        other        => AccountType::Other(other.to_string()),
+        other => AccountType::Other(other.to_string()),
     }
 }
 
 fn map_account_status(account_status: Option<&str>, active: Option<bool>) -> AccountStatus {
     // Prefer the explicit accountStatus field; fall back to active flag
     match account_status.unwrap_or("").to_lowercase().as_str() {
-        "active"  => AccountStatus::Active,
-        "closed"  => AccountStatus::Closed,
-        "frozen"  => AccountStatus::Frozen,
+        "active" => AccountStatus::Active,
+        "closed" => AccountStatus::Closed,
+        "frozen" => AccountStatus::Frozen,
         _ => match active {
-            Some(true)  => AccountStatus::Active,
+            Some(true) => AccountStatus::Active,
             Some(false) => AccountStatus::Closed,
-            None        => AccountStatus::Unknown,
+            None => AccountStatus::Unknown,
         },
     }
 }
@@ -108,25 +107,22 @@ pub fn map_transaction(
     raw: &RawTransaction,
     account_id: &str,
 ) -> Result<NormalizedTransaction, CoreBankingError> {
-    let currency = Currency(
-        raw.currency.clone().unwrap_or_else(|| "USD".to_string())
-    );
+    let currency = Currency(raw.currency.clone().unwrap_or_else(|| "USD".to_string()));
     let precision = currency.minor_unit_precision();
 
     let amount_str = raw.amount.as_deref().unwrap_or("0.00");
-    let amount = MinorUnits::from_decimal_str(amount_str, precision)
-        .map_err(|reason| CoreBankingError::AmountConversion {
+    let amount = MinorUnits::from_decimal_str(amount_str, precision).map_err(|reason| {
+        CoreBankingError::AmountConversion {
             raw: amount_str.to_string(),
             reason,
-        })?;
+        }
+    })?;
 
-    let transaction_type = TransactionType::from(
-        raw.transaction_type.as_deref().unwrap_or("UNKNOWN")
-    );
+    let transaction_type =
+        TransactionType::from(raw.transaction_type.as_deref().unwrap_or("UNKNOWN"));
 
-    let status = TransactionStatus::from(
-        raw.pending_status.as_deref().unwrap_or("NoReconciliation")
-    );
+    let status =
+        TransactionStatus::from(raw.pending_status.as_deref().unwrap_or("NoReconciliation"));
 
     // Use displayName → filteredMemo → memo in preference order
     let description = raw
@@ -159,10 +155,7 @@ pub fn map_transaction(
             None
         });
 
-    let merchant_name = raw
-        .merchant
-        .as_ref()
-        .and_then(|m| m.name.clone());
+    let merchant_name = raw.merchant.as_ref().and_then(|m| m.name.clone());
 
     Ok(NormalizedTransaction {
         id: raw.id.clone(),
@@ -282,62 +275,44 @@ mod tests {
 
     #[test]
     fn map_transaction_amount_is_correct_minor_units() {
-        let tx = map_transaction(
-            &garden_funding_tx(),
-            "e4ab6531-d442-4928-bf05-1db1b8ef5ac0",
-        )
-        .unwrap();
+        let tx =
+            map_transaction(&garden_funding_tx(), "e4ab6531-d442-4928-bf05-1db1b8ef5ac0").unwrap();
         assert_eq!(tx.amount.as_i64(), 100_000);
     }
 
     #[test]
     fn map_transaction_is_credit() {
-        let tx = map_transaction(
-            &garden_funding_tx(),
-            "e4ab6531-d442-4928-bf05-1db1b8ef5ac0",
-        )
-        .unwrap();
+        let tx =
+            map_transaction(&garden_funding_tx(), "e4ab6531-d442-4928-bf05-1db1b8ef5ac0").unwrap();
         assert!(tx.is_credit());
         assert!(!tx.is_debit());
     }
 
     #[test]
     fn map_transaction_type_is_transfer() {
-        let tx = map_transaction(
-            &garden_funding_tx(),
-            "e4ab6531-d442-4928-bf05-1db1b8ef5ac0",
-        )
-        .unwrap();
+        let tx =
+            map_transaction(&garden_funding_tx(), "e4ab6531-d442-4928-bf05-1db1b8ef5ac0").unwrap();
         assert_eq!(tx.transaction_type, TransactionType::Transfer);
     }
 
     #[test]
     fn map_transaction_status_is_no_reconciliation() {
-        let tx = map_transaction(
-            &garden_funding_tx(),
-            "e4ab6531-d442-4928-bf05-1db1b8ef5ac0",
-        )
-        .unwrap();
+        let tx =
+            map_transaction(&garden_funding_tx(), "e4ab6531-d442-4928-bf05-1db1b8ef5ac0").unwrap();
         assert_eq!(tx.status, TransactionStatus::NoReconciliation);
     }
 
     #[test]
     fn map_transaction_description_uses_display_name() {
-        let tx = map_transaction(
-            &garden_funding_tx(),
-            "e4ab6531-d442-4928-bf05-1db1b8ef5ac0",
-        )
-        .unwrap();
+        let tx =
+            map_transaction(&garden_funding_tx(), "e4ab6531-d442-4928-bf05-1db1b8ef5ac0").unwrap();
         assert_eq!(tx.description, "FUNDING NEW ACCOUNT");
     }
 
     #[test]
     fn map_transaction_idempotency_key_is_id() {
-        let tx = map_transaction(
-            &garden_funding_tx(),
-            "e4ab6531-d442-4928-bf05-1db1b8ef5ac0",
-        )
-        .unwrap();
+        let tx =
+            map_transaction(&garden_funding_tx(), "e4ab6531-d442-4928-bf05-1db1b8ef5ac0").unwrap();
         assert_eq!(tx.id, "8954078d-f808-4c34-8e23-e15a1344b301");
     }
 

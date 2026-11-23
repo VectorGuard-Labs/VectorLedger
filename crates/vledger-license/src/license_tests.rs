@@ -13,7 +13,7 @@
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
+
     use tempfile::TempDir;
 
     use crate::{
@@ -39,7 +39,10 @@ mod tests {
     #[test]
     fn free_tier_has_no_entitled_features() {
         let license = LicenseStore::free();
-        assert!(license.features.is_empty(), "free tier must have no features");
+        assert!(
+            license.features.is_empty(),
+            "free tier must have no features"
+        );
         assert!(license.require_feature(Feature::PgWire).is_err());
         assert!(license.require_feature(Feature::Replication).is_err());
         assert!(license.require_feature(Feature::Hsm).is_err());
@@ -49,7 +52,11 @@ mod tests {
     #[test]
     fn free_tier_days_remaining_is_none() {
         let license = LicenseStore::free();
-        assert_eq!(license.days_remaining(), None, "free tier must not report days remaining");
+        assert_eq!(
+            license.days_remaining(),
+            None,
+            "free tier must not report days remaining"
+        );
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -134,7 +141,10 @@ mod tests {
             "tampered signature must fall back to Free tier"
         );
         // Must NOT have enterprise features despite the JSON claiming them
-        assert!(!license.has_feature(&Feature::Hsm), "tampered license must not grant Hsm");
+        assert!(
+            !license.has_feature(&Feature::Hsm),
+            "tampered license must not grant Hsm"
+        );
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -233,15 +243,26 @@ mod tests {
         for tier in &tiers {
             let s = tier.to_string();
             let parsed: LicenseTier = s.parse().expect("tier must parse from its own display");
-            assert_eq!(&parsed, tier, "tier display/parse roundtrip failed for {tier:?}");
+            assert_eq!(
+                &parsed, tier,
+                "tier display/parse roundtrip failed for {tier:?}"
+            );
         }
     }
 
     /// LicenseTier::display_name returns a human-readable non-empty string.
     #[test]
     fn license_tier_display_name_non_empty() {
-        for tier in [LicenseTier::Free, LicenseTier::Starter, LicenseTier::Growth, LicenseTier::Enterprise] {
-            assert!(!tier.display_name().is_empty(), "display_name must not be empty for {tier:?}");
+        for tier in [
+            LicenseTier::Free,
+            LicenseTier::Starter,
+            LicenseTier::Growth,
+            LicenseTier::Enterprise,
+        ] {
+            assert!(
+                !tier.display_name().is_empty(),
+                "display_name must not be empty for {tier:?}"
+            );
         }
     }
 
@@ -270,7 +291,10 @@ mod tests {
         for feature in &features {
             let s = feature.to_string();
             let parsed: Feature = s.parse().expect("feature must parse from its own display");
-            assert_eq!(&parsed, feature, "feature display/parse roundtrip failed for {feature:?}");
+            assert_eq!(
+                &parsed, feature,
+                "feature display/parse roundtrip failed for {feature:?}"
+            );
         }
     }
 

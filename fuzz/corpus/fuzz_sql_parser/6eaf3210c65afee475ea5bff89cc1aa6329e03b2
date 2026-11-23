@@ -1,0 +1,1 @@
+SELECT R FROM(((SELECT LAT/sequeC @>EC

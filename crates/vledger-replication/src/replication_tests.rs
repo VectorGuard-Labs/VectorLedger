@@ -206,21 +206,38 @@ mod tests {
     /// AuthChallenge/Response/Result encode correctly as handshake messages.
     #[test]
     fn handshake_messages_encode_as_newline_terminated_json() {
-        let challenge = AuthChallenge { nonce: "aabbccdd".into() };
+        let challenge = AuthChallenge {
+            nonce: "aabbccdd".into(),
+        };
         let bytes = encode_handshake(&challenge).unwrap();
-        assert!(bytes.ends_with(b"\n"), "handshake message must end with newline");
+        assert!(
+            bytes.ends_with(b"\n"),
+            "handshake message must end with newline"
+        );
         let s = std::str::from_utf8(&bytes).unwrap();
-        assert!(s.contains("aabbccdd"), "nonce must appear in encoded message");
+        assert!(
+            s.contains("aabbccdd"),
+            "nonce must appear in encoded message"
+        );
 
-        let result = AuthResult { ok: true, error: None };
+        let result = AuthResult {
+            ok: true,
+            error: None,
+        };
         let bytes2 = encode_handshake(&result).unwrap();
         let s2 = std::str::from_utf8(&bytes2).unwrap();
         assert!(s2.contains("true"), "ok:true must appear in AuthResult");
 
-        let fail = AuthResult { ok: false, error: Some("bad mac".into()) };
+        let fail = AuthResult {
+            ok: false,
+            error: Some("bad mac".into()),
+        };
         let bytes3 = encode_handshake(&fail).unwrap();
         let s3 = std::str::from_utf8(&bytes3).unwrap();
-        assert!(s3.contains("bad mac"), "error message must appear in AuthResult");
+        assert!(
+            s3.contains("bad mac"),
+            "error message must appear in AuthResult"
+        );
     }
 
     /// Malformed JSON returns an error, not a panic.
@@ -251,7 +268,11 @@ mod tests {
         let contents = std::fs::read_to_string(&path).unwrap();
         let decoded = hex::decode(contents.trim()).unwrap();
         assert_eq!(decoded.len(), 32, "file must contain 32 hex-encoded bytes");
-        assert_eq!(decoded.as_slice(), &secret, "file must contain the returned secret");
+        assert_eq!(
+            decoded.as_slice(),
+            &secret,
+            "file must contain the returned secret"
+        );
     }
 
     /// load_secret round-trips with generate_and_save.
@@ -261,7 +282,10 @@ mod tests {
         let path = dir.path().join("secret.hex");
         let original = generate_and_save(&path).unwrap();
         let loaded = load_secret(&path).unwrap();
-        assert_eq!(original, loaded, "loaded secret must match generated secret");
+        assert_eq!(
+            original, loaded,
+            "loaded secret must match generated secret"
+        );
     }
 
     /// load_secret fails gracefully on missing file.
@@ -315,7 +339,10 @@ mod tests {
 
         // Second call: file present → loads (must be identical)
         let s2 = load_or_generate(&path).unwrap();
-        assert_eq!(s1, s2, "load_or_generate must return same secret on second call");
+        assert_eq!(
+            s1, s2,
+            "load_or_generate must return same secret on second call"
+        );
     }
 
     /// default_secret_path returns <data_dir>/replication_secret.hex.
@@ -352,9 +379,9 @@ mod tests {
         // No WAL files — directory exists but is empty
         let h = compute_wal_chain_hash(dir.path(), 0);
         // Either Ok([0;32]) or Err is acceptable for an empty WAL dir
-        match h {
-            Ok(hash) => assert_eq!(hash, [0u8; 32], "empty WAL must return zero hash"),
-            Err(_) => {} // acceptable: no segments to open
+        // Err is acceptable: no segments to open
+        if let Ok(hash) = h {
+            assert_eq!(hash, [0u8; 32], "empty WAL must return zero hash");
         }
     }
 
@@ -368,7 +395,11 @@ mod tests {
         assert_eq!(cp.lsn, 10);
         assert_eq!(cp.ledger_sequence, 5);
         assert_eq!(cp.ledger_chain_tip_hex, hex::encode(tip));
-        assert_eq!(cp.chain_hash_hex.len(), 64, "chain_hash_hex must be 64 hex chars");
+        assert_eq!(
+            cp.chain_hash_hex.len(),
+            64,
+            "chain_hash_hex must be 64 hex chars"
+        );
     }
 
     /// verify_checkpoint reports no divergence when WAL and tip match.
@@ -397,7 +428,11 @@ mod tests {
         let report = verify_checkpoint(dir.path(), &cp, &local_tip);
         assert!(report.diverged, "mismatched tips must trigger divergence");
         assert!(
-            report.reason.as_deref().unwrap_or("").contains("Ledger chain tip mismatch"),
+            report
+                .reason
+                .as_deref()
+                .unwrap_or("")
+                .contains("Ledger chain tip mismatch"),
             "reason must mention ledger chain tip"
         );
     }
@@ -411,7 +446,10 @@ mod tests {
         let mut cp = build_checkpoint(dir.path(), 10, 3, &tip).unwrap();
         cp.chain_hash_hex = "0".repeat(64); // all-zeros = wrong hash
         let report = verify_checkpoint(dir.path(), &cp, &tip);
-        assert!(report.diverged, "tampered chain hash must trigger divergence");
+        assert!(
+            report.diverged,
+            "tampered chain hash must trigger divergence"
+        );
     }
 
     /// verify_checkpoint with invalid (malformed) chain_hash_hex triggers divergence.
@@ -423,7 +461,10 @@ mod tests {
         let mut cp = build_checkpoint(dir.path(), 10, 2, &tip).unwrap();
         cp.chain_hash_hex = "not-valid-hex!".into();
         let report = verify_checkpoint(dir.path(), &cp, &tip);
-        assert!(report.diverged, "invalid chain_hash_hex must trigger divergence");
+        assert!(
+            report.diverged,
+            "invalid chain_hash_hex must trigger divergence"
+        );
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -466,6 +507,9 @@ mod tests {
         let dir = TempDir::new().unwrap();
         std::fs::write(dir.path().join("replication.json"), "{ not json }").unwrap();
         let result = crate::config::ReplicationConfig::load(dir.path());
-        assert!(result.is_err(), "malformed replication.json must return Err");
+        assert!(
+            result.is_err(),
+            "malformed replication.json must return Err"
+        );
     }
 }

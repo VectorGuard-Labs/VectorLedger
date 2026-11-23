@@ -1,0 +1,1 @@
+SELECT BER() OVER (FROM ledge Ar

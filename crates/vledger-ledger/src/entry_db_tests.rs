@@ -1,8 +1,8 @@
-/// EntryDb account persistence tests (v1.0.21).
-///
-/// Covers: ensure_accounts_table, upsert_account, load_all_accounts,
-/// account_count, and the migrate-to-sqlite guarantee that accounts
-/// written during import survive a WAL checkpoint replay.
+//! EntryDb account persistence tests (v1.0.21).
+//!
+//! Covers: ensure_accounts_table, upsert_account, load_all_accounts,
+//! account_count, and the migrate-to-sqlite guarantee that accounts
+//! written during import survive a WAL checkpoint replay.
 
 #[cfg(test)]
 mod tests {
@@ -86,9 +86,12 @@ mod tests {
         let db = open_db(&dir);
         db.ensure_accounts_table().unwrap();
 
-        db.upsert_account(&make_account("CASH", AccountType::Asset)).unwrap();
-        db.upsert_account(&make_account("REV", AccountType::Income)).unwrap();
-        db.upsert_account(&make_account("EXP", AccountType::Expense)).unwrap();
+        db.upsert_account(&make_account("CASH", AccountType::Asset))
+            .unwrap();
+        db.upsert_account(&make_account("REV", AccountType::Income))
+            .unwrap();
+        db.upsert_account(&make_account("EXP", AccountType::Expense))
+            .unwrap();
 
         assert_eq!(db.account_count().unwrap(), 3);
     }
@@ -114,7 +117,10 @@ mod tests {
         // Open without calling ensure_accounts_table.
         let db = EntryDb::open(&dir.path().join("legacy.db")).unwrap();
         let accounts = db.load_all_accounts().unwrap();
-        assert!(accounts.is_empty(), "must return empty when table is missing");
+        assert!(
+            accounts.is_empty(),
+            "must return empty when table is missing"
+        );
     }
 
     #[test]
@@ -195,10 +201,22 @@ mod tests {
         let mut store = open_store(&dir);
 
         store
-            .create_account(Account::new("CASH", "Cash", AccountType::Asset, "USD", "main"))
+            .create_account(Account::new(
+                "CASH",
+                "Cash",
+                AccountType::Asset,
+                "USD",
+                "main",
+            ))
             .unwrap();
         store
-            .create_account(Account::new("REV", "Revenue", AccountType::Income, "USD", "main"))
+            .create_account(Account::new(
+                "REV",
+                "Revenue",
+                AccountType::Income,
+                "USD",
+                "main",
+            ))
             .unwrap();
 
         // Open the SQLite db directly and verify accounts are there.
@@ -222,10 +240,22 @@ mod tests {
         {
             let mut store = open_store(&dir);
             store
-                .create_account(Account::new("CASH", "Cash", AccountType::Asset, "USD", "main"))
+                .create_account(Account::new(
+                    "CASH",
+                    "Cash",
+                    AccountType::Asset,
+                    "USD",
+                    "main",
+                ))
                 .unwrap();
             store
-                .create_account(Account::new("REV", "Revenue", AccountType::Income, "USD", "main"))
+                .create_account(Account::new(
+                    "REV",
+                    "Revenue",
+                    AccountType::Income,
+                    "USD",
+                    "main",
+                ))
                 .unwrap();
         }
 
@@ -251,8 +281,8 @@ mod tests {
             for i in 0..n {
                 store
                     .create_account(Account::new(
-                        &format!("ACC{i}"),
-                        &format!("Account {i}"),
+                        format!("ACC{i}"),
+                        format!("Account {i}"),
                         AccountType::Suspense,
                         "USD",
                         "main",

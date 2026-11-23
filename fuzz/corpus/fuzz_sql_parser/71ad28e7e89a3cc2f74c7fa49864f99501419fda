@@ -1,0 +1,1 @@
+INSERT  accots (code,name,ac,currency,tomain) SELECT 

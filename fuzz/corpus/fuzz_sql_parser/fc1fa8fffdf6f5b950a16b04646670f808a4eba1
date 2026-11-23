@@ -1,0 +1,1 @@
+SELECT ROER() OVER () n FROM ledger

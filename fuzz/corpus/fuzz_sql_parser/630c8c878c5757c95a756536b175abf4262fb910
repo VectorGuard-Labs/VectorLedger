@@ -1,0 +1,1 @@
+INSERT INTO accounts (code,name,accy,domain) VALUES ('A',c/de,$ame,ac,'\USD','	est')

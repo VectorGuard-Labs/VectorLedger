@@ -1,0 +1,1 @@
+SELECT R FROM(((SELECT (!!(SLT R|T(R

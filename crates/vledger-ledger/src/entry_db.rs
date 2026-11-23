@@ -205,17 +205,13 @@ fn apply_schema_migrations(conn: &Connection) -> Result<(), LedgerError> {
                  COMMIT;
                  PRAGMA foreign_keys=ON;",
             )
-            .map_err(|e| LedgerError::Serialization(
-                format!("schema migration 0→1 failed: {e}")
-            ))?;
+            .map_err(|e| LedgerError::Serialization(format!("schema migration 0→1 failed: {e}")))?;
         } else {
             // Table doesn't exist yet — the CREATE TABLE in open_with_mode
             // will create it with the UNIQUE constraint already present.
             // Just bump the version so we don't attempt the migration again.
             conn.execute_batch("PRAGMA user_version=1;")
-                .map_err(|e| LedgerError::Serialization(
-                    format!("PRAGMA user_version=1: {e}")
-                ))?;
+                .map_err(|e| LedgerError::Serialization(format!("PRAGMA user_version=1: {e}")))?;
         }
     }
 
@@ -309,16 +305,12 @@ fn apply_schema_migrations(conn: &Connection) -> Result<(), LedgerError> {
                  COMMIT;
                  PRAGMA foreign_keys=ON;",
             )
-            .map_err(|e| LedgerError::Serialization(
-                format!("schema migration 1→2 failed: {e}")
-            ))?;
+            .map_err(|e| LedgerError::Serialization(format!("schema migration 1→2 failed: {e}")))?;
         } else {
             // Table does not exist yet — the CREATE TABLE in open_with_mode
             // will add constraints directly; just bump the version.
             conn.execute_batch("PRAGMA user_version=2;")
-                .map_err(|e| LedgerError::Serialization(
-                    format!("PRAGMA user_version=2: {e}")
-                ))?;
+                .map_err(|e| LedgerError::Serialization(format!("PRAGMA user_version=2: {e}")))?;
         }
     }
 
@@ -450,7 +442,9 @@ impl EntryDb {
             .map_err(|e| LedgerError::Serialization(format!("SQLite schema error: {e}")))?;
         }
 
-        Ok(Self { conn: Mutex::new(conn) })
+        Ok(Self {
+            conn: Mutex::new(conn),
+        })
     }
 
     /// Build secondary indexes after bulk migration insert is complete.
@@ -550,7 +544,7 @@ impl EntryDb {
     /// same deferred-index technique as bulk_insert_migration.
     pub fn rebuild_account_entries_fast<F>(
         &self,
-        report_every: u64,
+        _report_every: u64,
         mut on_progress: F,
     ) -> Result<u64, LedgerError>
     where
@@ -566,9 +560,7 @@ impl EntryDb {
         .map_err(|e| LedgerError::Serialization(format!("drop/truncate: {e}")))?;
 
         let mut insert_stmt = conn
-            .prepare(
-                "INSERT OR IGNORE INTO account_entries (account_id, sequence) VALUES (?1, ?2)",
-            )
+            .prepare("INSERT OR IGNORE INTO account_entries (account_id, sequence) VALUES (?1, ?2)")
             .map_err(|e| LedgerError::Serialization(format!("prepare insert: {e}")))?;
 
         let mut scan_stmt = conn
@@ -586,8 +578,7 @@ impl EntryDb {
             .map_err(|e| LedgerError::Serialization(format!("scan: {e}")))?;
 
         for row in rows {
-            let data = row
-                .map_err(|e| LedgerError::Serialization(format!("row: {e}")))?;
+            let data = row.map_err(|e| LedgerError::Serialization(format!("row: {e}")))?;
             let entry = decode_entry(&data)?;
 
             for line in &entry.lines {
@@ -644,26 +635,27 @@ impl EntryDb {
     pub fn insert(&self, entry: &JournalEntry) -> Result<(), LedgerError> {
         let data = encode_entry(entry)?;
         let conn = self.lock()?;
-        let rows_inserted = conn.execute(
-            "INSERT OR IGNORE INTO entries
+        let rows_inserted = conn
+            .execute(
+                "INSERT OR IGNORE INTO entries
                  (sequence, id, status, domain, external_ref, idempotency_key,
                   content_hash, chain_hash, effective_at, posted_at, data)
                  VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11)",
-            params![
-                entry.sequence as i64,
-                entry.id.to_string(),
-                format!("{:?}", entry.status),
-                entry.domain,
-                entry.external_ref.as_deref(),
-                entry.idempotency_key.as_deref(),
-                hex::encode(entry.content_hash),
-                hex::encode(entry.chain_hash),
-                entry.effective_at.to_rfc3339(),
-                entry.posted_at.to_rfc3339(),
-                data,
-            ],
-        )
-        .map_err(|e| LedgerError::Serialization(format!("SQLite insert error: {e}")))?;
+                params![
+                    entry.sequence as i64,
+                    entry.id.to_string(),
+                    format!("{:?}", entry.status),
+                    entry.domain,
+                    entry.external_ref.as_deref(),
+                    entry.idempotency_key.as_deref(),
+                    hex::encode(entry.content_hash),
+                    hex::encode(entry.chain_hash),
+                    entry.effective_at.to_rfc3339(),
+                    entry.posted_at.to_rfc3339(),
+                    data,
+                ],
+            )
+            .map_err(|e| LedgerError::Serialization(format!("SQLite insert error: {e}")))?;
 
         // Only insert the FTS row if the entry was actually written.
         // If rows_inserted == 0 the entry was skipped by OR IGNORE (duplicate
@@ -1010,8 +1002,7 @@ impl EntryDb {
             .map_err(|e| LedgerError::Serialization(format!("scan: {e}")))?;
 
         for row in rows {
-            let (seq, data) =
-                row.map_err(|e| LedgerError::Serialization(format!("row: {e}")))?;
+            let (seq, data) = row.map_err(|e| LedgerError::Serialization(format!("row: {e}")))?;
             let entry = decode_entry(&data)?;
             fts_stmt
                 .execute(rusqlite::params![
@@ -1040,15 +1031,16 @@ impl EntryDb {
     /// whether a one-time backfill is needed on an existing database.
     pub fn fts_is_empty(&self) -> bool {
         let Ok(conn) = self.lock() else { return true };
-        conn.query_row(
-            "SELECT COUNT(*) FROM entries_fts",
-            [],
-            |row| row.get::<_, i64>(0),
-        ).unwrap_or(0) == 0
+        conn.query_row("SELECT COUNT(*) FROM entries_fts", [], |row| {
+            row.get::<_, i64>(0)
+        })
+        .unwrap_or(0)
+            == 0
     }
 
     /// Fetch entries in a sequence range [from_seq, to_seq] inclusive.
-    pub fn scan_range(&self, from_seq: u64, to_seq: u64) -> Result<Vec<JournalEntry>, LedgerError> {        let conn = self.lock()?;
+    pub fn scan_range(&self, from_seq: u64, to_seq: u64) -> Result<Vec<JournalEntry>, LedgerError> {
+        let conn = self.lock()?;
         let mut stmt = conn
             .prepare(
                 "SELECT data FROM entries WHERE sequence >= ?1 AND sequence <= ?2 ORDER BY sequence",
@@ -1254,12 +1246,9 @@ impl EntryDb {
             .map_err(|e| LedgerError::Serialization(format!("query accounts: {e}")))?
             .filter_map(|r| r.ok())
             .filter_map(|data| {
-                bincode::serde::decode_from_slice::<Account, _>(
-                    &data,
-                    bincode::config::standard(),
-                )
-                .ok()
-                .map(|(a, _)| a)
+                bincode::serde::decode_from_slice::<Account, _>(&data, bincode::config::standard())
+                    .ok()
+                    .map(|(a, _)| a)
             })
             .collect();
         Ok(accounts)
@@ -1279,12 +1268,33 @@ impl EntryDb {
     #[cfg(any(test, feature = "self-test"))]
     pub fn tamper_replace(&self, seq: u64, data: &[u8]) -> Result<bool, LedgerError> {
         let conn = self.lock()?;
-        let rows = conn
-            .execute(
-                "UPDATE entries SET data = ?1 WHERE sequence = ?2",
-                rusqlite::params![data, seq as i64],
-            )
-            .map_err(|e| LedgerError::Serialization(format!("SQLite tamper error: {e}")))?;
-        Ok(rows > 0)
+        let err =
+            |e: rusqlite::Error| LedgerError::Serialization(format!("SQLite tamper error: {e}"));
+
+        // The `entries_no_update` trigger (v1.8.0+) blocks UPDATEs, which is
+        // exactly what a real attacker with raw file access would bypass.
+        // Simulate that: drop the trigger, overwrite the blob, restore the
+        // trigger. Done in one transaction so a failure cannot leave the
+        // trigger missing.
+        conn.execute_batch("BEGIN IMMEDIATE; DROP TRIGGER IF EXISTS entries_no_update;")
+            .map_err(err)?;
+        let updated = conn.execute(
+            "UPDATE entries SET data = ?1 WHERE sequence = ?2",
+            rusqlite::params![data, seq as i64],
+        );
+        let restore = conn.execute_batch(
+            "CREATE TRIGGER IF NOT EXISTS entries_no_update
+                 BEFORE UPDATE ON entries
+                 BEGIN
+                     SELECT RAISE(ABORT,
+                         'entries table is append-only: UPDATE is not permitted');
+                 END;
+             COMMIT;",
+        );
+        if restore.is_err() {
+            let _ = conn.execute_batch("ROLLBACK");
+        }
+        restore.map_err(err)?;
+        Ok(updated.map_err(err)? > 0)
     }
 }

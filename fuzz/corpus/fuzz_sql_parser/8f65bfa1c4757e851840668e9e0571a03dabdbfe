@@ -1,0 +1,1 @@
+INSERT INTO  sa(con) VALUES ('A','\B','\US','	est')

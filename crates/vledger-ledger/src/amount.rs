@@ -106,7 +106,11 @@ impl Add for Amount {
 impl Sub for Amount {
     type Output = Self;
     fn sub(self, rhs: Self) -> Self {
-        Self(self.0.checked_sub(rhs.0).expect("Amount subtraction overflow"))
+        Self(
+            self.0
+                .checked_sub(rhs.0)
+                .expect("Amount subtraction overflow"),
+        )
     }
 }
 

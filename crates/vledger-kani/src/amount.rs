@@ -6,8 +6,6 @@
 //! 3. Checked arithmetic operators never panic for any valid i64 inputs.
 //! 4. Negation, addition, and subtraction are consistent with i64 semantics.
 
-use vledger_ledger::Amount;
-
 // ── Harness 1: zero amount always rejected ────────────────────────────────────
 
 /// Prove that `Amount::new(0)` always returns `None`.
@@ -123,7 +121,10 @@ pub fn amount_checked_add_correct_result() {
     let b = Amount::new(y).unwrap();
 
     let result = a.checked_add(b);
-    assert!(result.is_some(), "checked_add must succeed when no overflow");
+    assert!(
+        result.is_some(),
+        "checked_add must succeed when no overflow"
+    );
 
     let sum = result.unwrap();
     assert_eq!(

@@ -645,9 +645,24 @@ fn archive_dir_safe<W: Write>(
     archive: &mut tar::Builder<W>,
     files: &mut BTreeMap<String, String>,
 ) -> Result<()> {
+    // `walkdir_safe` returns canonicalized paths, so the prefix must be
+    // canonical too. Stripping the caller-supplied `dir` fails whenever it is
+    // relative or contains a symlink (e.g. macOS `/var` -> `/private/var`),
+    // which previously stored the full absolute path as the archive name and
+    // made the backup impossible to restore.
+    let canonical_dir = dir
+        .canonicalize()
+        .with_context(|| format!("Cannot canonicalize {}", dir.display()))?;
+
     for resolved in walkdir_safe(dir, canonical_root)? {
         // Relative path from dir root — used as the logical archive name.
-        let rel = resolved.strip_prefix(dir).unwrap_or(&resolved);
+        let rel = resolved.strip_prefix(&canonical_dir).with_context(|| {
+            format!(
+                "{} is not under {}",
+                resolved.display(),
+                canonical_dir.display()
+            )
+        })?;
         let relative = format!("{prefix}/{}", rel.display());
 
         let bytes = std::fs::read(&resolved)?;
@@ -942,5 +957,83 @@ impl VerifyReport {
             if self.is_ok() { "✓ PASS" } else { "✗ FAIL" }
         );
         println!("──────────────────────────────────────────────────");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::TempDir;
+
+    fn sample_data_dir(root: &Path) -> PathBuf {
+        let data = root.join("data");
+        for d in ["wal", "pages", "catalog", "audit", "keys"] {
+            std::fs::create_dir_all(data.join(d)).unwrap();
+        }
+        std::fs::write(data.join("wal/0001.wal"), b"wal-bytes").unwrap();
+        std::fs::write(data.join("pages/0001.pages"), b"page-bytes").unwrap();
+        std::fs::write(data.join("catalog/VERSION"), b"1").unwrap();
+        std::fs::write(data.join("audit/audit.log"), b"audit").unwrap();
+        std::fs::write(data.join("keys/db_signing_pubkey.hex"), b"ab").unwrap();
+        data
+    }
+
+    fn archive_names(path: &Path) -> Vec<String> {
+        let mut ar = tar::Archive::new(std::fs::File::open(path).unwrap());
+        ar.entries()
+            .unwrap()
+            .map(|e| e.unwrap().path().unwrap().display().to_string())
+            .collect()
+    }
+
+    /// Regression: a data dir reached through a symlink (or a relative path)
+    /// used to be archived under its full absolute path, which restore then
+    /// nested inside the target and silently produced an empty ledger.
+    #[cfg(unix)]
+    #[test]
+    fn backup_via_symlinked_data_dir_uses_relative_names_and_restores() {
+        let tmp = TempDir::new().unwrap();
+        let real = sample_data_dir(tmp.path());
+        let link = tmp.path().join("link");
+        std::os::unix::fs::symlink(&real, &link).unwrap();
+
+        let master = MasterKey::from_bytes([7u8; 32]);
+        let tar_path = tmp.path().join("b.tar");
+        create_backup_encrypted(&link, &tar_path, &master).unwrap();
+
+        let names = archive_names(&tar_path);
+        assert!(
+            names
+                .iter()
+                .all(|n| !n.contains(tmp.path().to_str().unwrap()) && !n.contains("//")),
+            "archive names must be relative, got {names:?}"
+        );
+        assert!(names.contains(&"wal/0001.wal.enc".to_string()), "{names:?}");
+
+        let target = tmp.path().join("restored");
+        restore_backup_encrypted(&tar_path, &target, false, &master).unwrap();
+        assert_eq!(
+            std::fs::read(target.join("wal/0001.wal")).unwrap(),
+            b"wal-bytes"
+        );
+        assert_eq!(
+            std::fs::read(target.join("pages/0001.pages")).unwrap(),
+            b"page-bytes"
+        );
+    }
+
+    #[test]
+    fn backup_via_plain_path_round_trips() {
+        let tmp = TempDir::new().unwrap();
+        let data = sample_data_dir(tmp.path());
+        let master = MasterKey::from_bytes([9u8; 32]);
+        let tar_path = tmp.path().join("b.tar");
+        create_backup_encrypted(&data, &tar_path, &master).unwrap();
+        let target = tmp.path().join("restored");
+        restore_backup_encrypted(&tar_path, &target, false, &master).unwrap();
+        assert_eq!(
+            std::fs::read(target.join("audit/audit.log")).unwrap(),
+            b"audit"
+        );
     }
 }

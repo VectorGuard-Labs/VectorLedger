@@ -1,10 +1,10 @@
-/// SQL layer tests — parser, planner, executor.
-///
-/// Covers the full pipeline:
-///   SQL text → parse_one → LogicalPlanBuilder::plan → Executor::execute
-///
-/// Tests every supported statement, every filter variant, error paths,
-/// and the read/write split enforcement.
+//! SQL layer tests — parser, planner, executor.
+//!
+//! Covers the full pipeline:
+//!   SQL text → parse_one → LogicalPlanBuilder::plan → Executor::execute
+//!
+//! Tests every supported statement, every filter variant, error paths,
+//! and the read/write split enforcement.
 
 #[cfg(test)]
 mod tests {
@@ -30,10 +30,22 @@ mod tests {
 
     fn mk_accounts(store: &mut LedgerStore) -> (uuid::Uuid, uuid::Uuid) {
         let cash = store
-            .create_account(Account::new("CASH", "Cash", AccountType::Asset, "USD", "test"))
+            .create_account(Account::new(
+                "CASH",
+                "Cash",
+                AccountType::Asset,
+                "USD",
+                "test",
+            ))
             .unwrap();
         let rev = store
-            .create_account(Account::new("REV", "Revenue", AccountType::Income, "USD", "test"))
+            .create_account(Account::new(
+                "REV",
+                "Revenue",
+                AccountType::Income,
+                "USD",
+                "test",
+            ))
             .unwrap();
         (cash, rev)
     }
@@ -56,7 +68,9 @@ mod tests {
     fn run_read(store: &LedgerStore, sql: &str) -> crate::result::QueryResult {
         let stmt = parse_one(sql).expect("parse failed");
         let plan = LogicalPlanBuilder::plan(stmt).expect("plan failed");
-        ReadExecutor::new(store).execute(plan).expect("execute failed")
+        ReadExecutor::new(store)
+            .execute(plan)
+            .expect("execute failed")
     }
 
     // ══════════════════════════════════════════════════════════════════════
@@ -74,7 +88,10 @@ mod tests {
         assert_eq!(result.rows.len(), 1);
         assert!(result.message.contains("created"));
         let row = &result.rows[0];
-        let code_val = row.values.iter().zip(row.columns.iter())
+        let code_val = row
+            .values
+            .iter()
+            .zip(row.columns.iter())
             .find(|(_, col)| col.as_str() == "code")
             .map(|(v, _)| v);
         assert!(matches!(code_val, Some(Value::Text(c)) if c == "CHECKING"));
@@ -150,7 +167,10 @@ mod tests {
         );
         assert_eq!(result.rows.len(), 1);
         let row = &result.rows[0];
-        let seq_val = row.values.iter().zip(row.columns.iter())
+        let seq_val = row
+            .values
+            .iter()
+            .zip(row.columns.iter())
             .find(|(_, col)| col.as_str() == "sequence")
             .map(|(v, _)| v);
         assert!(matches!(seq_val, Some(Value::BigInt(s)) if *s == seq as i128));
@@ -207,7 +227,10 @@ mod tests {
         let result = run_read(&store, "SELECT * FROM ledger_lines WHERE dr_cr = 'Debit'");
         assert_eq!(result.rows.len(), 1);
         let row = &result.rows[0];
-        let dr_cr = row.values.iter().zip(row.columns.iter())
+        let dr_cr = row
+            .values
+            .iter()
+            .zip(row.columns.iter())
             .find(|(_, col)| col.as_str() == "dr_cr")
             .map(|(v, _)| v);
         assert!(matches!(dr_cr, Some(Value::Text(s)) if s == "Debit"));
@@ -241,7 +264,10 @@ mod tests {
         let result = run_read(&store, "SELECT * FROM accounts WHERE code = 'CASH'");
         assert_eq!(result.rows.len(), 1);
         let row = &result.rows[0];
-        let code_val = row.values.iter().zip(row.columns.iter())
+        let code_val = row
+            .values
+            .iter()
+            .zip(row.columns.iter())
             .find(|(_, col)| col.as_str() == "code")
             .map(|(v, _)| v);
         assert!(matches!(code_val, Some(Value::Text(c)) if c == "CASH"));
@@ -283,7 +309,10 @@ mod tests {
         seed(&mut store, cash, rev, 12345);
         let result = run_read(&store, "SELECT BALANCE('CASH')");
         assert_eq!(result.rows.len(), 1);
-        let bal = result.rows[0].values.iter().zip(result.rows[0].columns.iter())
+        let bal = result.rows[0]
+            .values
+            .iter()
+            .zip(result.rows[0].columns.iter())
             .find(|(_, col)| col.as_str() == "balance")
             .map(|(v, _)| v);
         assert!(matches!(bal, Some(Value::BigInt(b)) if *b == 12345));
@@ -310,7 +339,10 @@ mod tests {
         seed(&mut store, cash, rev, 200);
         let result = run_read(&store, "SELECT VERIFY_CHAIN()");
         assert_eq!(result.rows.len(), 1);
-        let status = result.rows[0].values.iter().zip(result.rows[0].columns.iter())
+        let status = result.rows[0]
+            .values
+            .iter()
+            .zip(result.rows[0].columns.iter())
             .find(|(_, col)| col.as_str() == "status")
             .map(|(v, _)| v);
         assert!(matches!(status, Some(Value::Text(s)) if s == "OK"));
@@ -325,7 +357,10 @@ mod tests {
         }
         let result = run_read(&store, "SELECT VERIFY_CHAIN(1, 3)");
         assert_eq!(result.rows.len(), 1);
-        let status = result.rows[0].values.iter().zip(result.rows[0].columns.iter())
+        let status = result.rows[0]
+            .values
+            .iter()
+            .zip(result.rows[0].columns.iter())
             .find(|(_, col)| col.as_str() == "status")
             .map(|(v, _)| v);
         assert!(matches!(status, Some(Value::Text(s)) if s == "OK"));
@@ -340,17 +375,24 @@ mod tests {
         // Use TamperEntry (cfg(test) only) to corrupt the entry.
         let stmt = parse_one(&format!(
             "SELECT TAMPER_ENTRY({seq}, 'tampered description')"
-        )).unwrap();
+        ))
+        .unwrap();
         let plan = LogicalPlanBuilder::plan(stmt).unwrap();
         Executor::new(&mut store).execute(plan).unwrap();
 
         // VERIFY_CHAIN should now fail.
         let result = run_read(&store, "SELECT VERIFY_CHAIN()");
         // Either empty rows (failure path) or status != OK.
-        let is_ok = result.rows.first()
-            .and_then(|r| r.values.iter().zip(r.columns.iter())
-                .find(|(_, col)| col.as_str() == "status")
-                .map(|(v, _)| v))
+        let is_ok = result
+            .rows
+            .first()
+            .and_then(|r| {
+                r.values
+                    .iter()
+                    .zip(r.columns.iter())
+                    .find(|(_, col)| col.as_str() == "status")
+                    .map(|(v, _)| v)
+            })
             .map(|v| matches!(v, Value::Text(s) if s == "OK"))
             .unwrap_or(false);
         assert!(!is_ok, "VERIFY_CHAIN must fail after tampering");
@@ -373,7 +415,9 @@ mod tests {
         let result = run_read(&store, "SELECT version()");
         assert_eq!(result.rows.len(), 1);
         let val = &result.rows[0].values[0];
-        assert!(matches!(val, Value::Text(s) if s.contains("VectorLedger") || s.contains("PostgreSQL")));
+        assert!(
+            matches!(val, Value::Text(s) if s.contains("VectorLedger") || s.contains("PostgreSQL"))
+        );
     }
 
     #[test]
@@ -409,11 +453,16 @@ mod tests {
     #[test]
     fn sql_drop_database_rejected_by_planner() {
         // DROP DATABASE is not valid SQL in sqlparser but the parser/planner must reject it.
-        assert!(parse_one("DROP DATABASE vledger").is_err()
-            || LogicalPlanBuilder::plan(parse_one("DROP DATABASE vledger").unwrap_or_else(|_| {
-                // If parser errors, that's the rejection — test passes.
-                panic!("already rejected by parser")
-            })).is_err());
+        assert!(
+            parse_one("DROP DATABASE vledger").is_err()
+                || LogicalPlanBuilder::plan(parse_one("DROP DATABASE vledger").unwrap_or_else(
+                    |_| {
+                        // If parser errors, that's the rejection — test passes.
+                        panic!("already rejected by parser")
+                    }
+                ))
+                .is_err()
+        );
     }
 
     #[test]

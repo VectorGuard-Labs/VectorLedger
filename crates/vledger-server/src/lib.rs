@@ -2,16 +2,19 @@
 
 pub mod alert;
 pub mod auth;
+#[cfg(test)]
+mod auth_tests;
 pub mod config;
 pub mod error;
 pub mod handler;
 pub mod metrics;
 pub mod protocol;
 pub mod tls;
-#[cfg(test)]
-mod auth_tests;
 
-pub use alert::{load_alert_router, Alert, AlertChannel, AlertRouter, LogOnlyAlertChannel, Severity, WebhookAlertChannel};
+pub use alert::{
+    load_alert_router, Alert, AlertChannel, AlertRouter, LogOnlyAlertChannel, Severity,
+    WebhookAlertChannel,
+};
 pub use auth::{check_plan_privilege, Role, Session, UserStore};
 pub use config::ServerConfig;
 pub use error::ServerError;
@@ -101,7 +104,7 @@ impl Server {
                 // Fail loudly rather than silently continuing — there is no
                 // safe way to start the server without a user store.
                 // clippy::panic: intentional — unrecoverable startup failure.
-                #[allow(clippy::panic)]
+
                 panic!(
                     "Cannot open user store at '{}' ({e}) and cannot create \
                          fallback at '{}' ({mkdir_err}). \

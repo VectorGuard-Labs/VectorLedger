@@ -1,0 +1,1 @@
+SELECT ROW_UMBER() OVER () A('CASH')S rn FROM ledger

@@ -51,8 +51,7 @@ impl WalCheckpoint {
     pub fn write(data_dir: &Path, cp: &WalCheckpoint) -> Result<(), std::io::Error> {
         let p = Self::path(data_dir);
         let tmp = p.with_extension("json.tmp");
-        let json = serde_json::to_vec_pretty(cp)
-            .map_err(|e| std::io::Error::other(e))?;
+        let json = serde_json::to_vec_pretty(cp).map_err(std::io::Error::other)?;
         std::fs::write(&tmp, &json)?;
         std::fs::rename(&tmp, &p)?;
         Ok(())

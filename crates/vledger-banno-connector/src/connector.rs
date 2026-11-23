@@ -3,12 +3,10 @@
 use tracing::info;
 
 use vledger_banking_core::{
-    CoreBankingConnector, CoreBankingError,
     types::{
-        AccountQuery, ConnectorStatus,
-        NormalizedAccount, NormalizedTransaction,
-        TransactionQuery,
+        AccountQuery, ConnectorStatus, NormalizedAccount, NormalizedTransaction, TransactionQuery,
     },
+    CoreBankingConnector, CoreBankingError,
 };
 
 use crate::{
@@ -97,22 +95,21 @@ impl CoreBankingConnector for BannoConnector {
         println!("║  Open the following URL in your browser to authenticate:     ║");
         println!("╚══════════════════════════════════════════════════════════════╝");
         println!("\n{auth_url}\n");
-        println!("Waiting for redirect on port {} ...", self.config.redirect_port);
+        println!(
+            "Waiting for redirect on port {} ...",
+            self.config.redirect_port
+        );
 
         // Catch the redirect (blocking — spawned via spawn_blocking below)
         let port = self.config.redirect_port;
         let state_clone = state.clone();
-        let code = tokio::task::spawn_blocking(move || {
-            auth::wait_for_redirect(port, &state_clone)
-        })
-        .await
-        .map_err(|e| CoreBankingError::Auth(format!("spawn_blocking error: {e}")))?
-        .map_err(|e| e)?;
+        let code = tokio::task::spawn_blocking(move || auth::wait_for_redirect(port, &state_clone))
+            .await
+            .map_err(|e| CoreBankingError::Auth(format!("spawn_blocking error: {e}")))??;
 
         info!("Authorization code received. Exchanging for token...");
 
-        let token_resp =
-            auth::exchange_code(&self.http, &self.config, &code, &pkce).await?;
+        let token_resp = auth::exchange_code(&self.http, &self.config, &code, &pkce).await?;
 
         let user_id = auth::extract_user_id(&token_resp.id_token)?;
 
@@ -153,10 +150,7 @@ impl CoreBankingConnector for BannoConnector {
         )
         .await?;
 
-        resp.accounts
-            .iter()
-            .map(mapping::map_account)
-            .collect()
+        resp.accounts.iter().map(mapping::map_account).collect()
     }
 
     /// Fetch transactions for a specific account.
@@ -172,12 +166,8 @@ impl CoreBankingConnector for BannoConnector {
             ));
         }
 
-        let since = params
-            .since
-            .map(|dt| dt.to_rfc3339());
-        let until = params
-            .until
-            .map(|dt| dt.to_rfc3339());
+        let since = params.since.map(|dt| dt.to_rfc3339());
+        let until = params.until.map(|dt| dt.to_rfc3339());
 
         let resp = client::fetch_transactions(
             &self.http,

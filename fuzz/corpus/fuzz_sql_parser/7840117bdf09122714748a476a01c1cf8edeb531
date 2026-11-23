@@ -1,0 +1,1 @@
+SELECT * FROM dger WHERE domain = 'uest'

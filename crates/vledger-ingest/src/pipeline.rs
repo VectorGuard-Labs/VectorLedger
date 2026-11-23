@@ -9,17 +9,15 @@ use uuid::Uuid;
 
 use vledger_audit::{AuditEventKind, AuditLog};
 use vledger_banking_core::{
-    CoreBankingConnector, IngestRecord,
     types::{AccountQuery, TransactionQuery},
+    CoreBankingConnector, IngestRecord,
 };
 use vledger_crypto::hash::hash_to_hex;
 use vledger_ledger::{Amount, JournalEntryBuilder, LedgerStore};
 
 use crate::error::IngestError;
 use crate::report::IngestReport;
-use crate::setup::{
-    ensure_account, ensure_contra_account, EXTERNAL_TRANSFER_CODE,
-};
+use crate::setup::{ensure_account, ensure_contra_account, EXTERNAL_TRANSFER_CODE};
 
 /// The ingestion pipeline.
 ///
@@ -74,10 +72,9 @@ impl IngestPipeline {
 
         // ── Open the audit log ────────────────────────────────────────────
         let audit_log_path = self.data_dir.join("audit").join("audit.log");
-        std::fs::create_dir_all(self.data_dir.join("audit"))
-            .map_err(IngestError::Io)?;
-        let audit_log = AuditLog::open(&audit_log_path)
-            .map_err(|e| IngestError::Audit(e.to_string()))?;
+        std::fs::create_dir_all(self.data_dir.join("audit")).map_err(IngestError::Io)?;
+        let audit_log =
+            AuditLog::open(&audit_log_path).map_err(|e| IngestError::Audit(e.to_string()))?;
 
         // ── Open the ledger store ─────────────────────────────────────────
         let mut store = LedgerStore::open(&self.data_dir)?;
@@ -87,9 +84,7 @@ impl IngestPipeline {
 
         // ── Step 1: Fetch accounts ────────────────────────────────────────
         info!("Fetching accounts from {}", connector.source_system());
-        let normalized_accounts = connector
-            .fetch_accounts(&AccountQuery::default())
-            .await?;
+        let normalized_accounts = connector.fetch_accounts(&AccountQuery::default()).await?;
 
         let accounts_fetched = normalized_accounts.len();
         info!(count = accounts_fetched, "Accounts fetched");
@@ -122,9 +117,11 @@ impl IngestPipeline {
             .all_accounts()
             .find(|a| a.code == EXTERNAL_TRANSFER_CODE)
             .map(|a| a.id)
-            .ok_or_else(|| IngestError::AccountSetup(
-                "EXTERNAL_TRANSFER account not found after setup".to_string(),
-            ))?;
+            .ok_or_else(|| {
+                IngestError::AccountSetup(
+                    "EXTERNAL_TRANSFER account not found after setup".to_string(),
+                )
+            })?;
 
         // ── Step 2: Fetch and ingest transactions ─────────────────────────
         let mut transactions_fetched = 0usize;
@@ -166,11 +163,8 @@ impl IngestPipeline {
 
             for tx in &txns {
                 // Build the IngestRecord — handles dr/cr routing
-                let record = IngestRecord::from_transaction(
-                    tx,
-                    connector.name(),
-                    connector.source_system(),
-                );
+                let record =
+                    IngestRecord::from_transaction(tx, connector.name(), connector.source_system());
 
                 // Resolve the debit and credit account IDs
                 let debit_id = resolve_account_id(
@@ -202,14 +196,11 @@ impl IngestPipeline {
                 };
 
                 // Build the journal entry
-                let mut builder = JournalEntryBuilder::new(
-                    &record.description,
-                    &self.domain,
-                )
-                .debit(debit_id, amount, record.currency.0.clone())
-                .credit(credit_id, amount, record.currency.0.clone())
-                .idempotency_key(&record.idempotency_key)
-                .effective_at(record.effective_at);
+                let mut builder = JournalEntryBuilder::new(&record.description, &self.domain)
+                    .debit(debit_id, amount, record.currency.0.clone())
+                    .credit(credit_id, amount, record.currency.0.clone())
+                    .idempotency_key(&record.idempotency_key)
+                    .effective_at(record.effective_at);
 
                 if let Some(ref ext_ref) = record.external_ref {
                     builder = builder.external_ref(ext_ref);
@@ -222,7 +213,8 @@ impl IngestPipeline {
                     "source_transaction_id": tx.id,
                     "source_account_id": tx.account_id,
                     "transaction_type": format!("{}", tx.transaction_type),
-                }).to_string();
+                })
+                .to_string();
                 builder = builder.metadata(metadata);
 
                 let entry = builder.build();
@@ -355,16 +347,9 @@ fn resolve_account_id(
 
 /// Generate an audit package using the vledger audit_package module.
 /// We call the same logic as `vledger audit-package` CLI command.
-fn generate_audit_package(
-    data_dir: &Path,
-    output_path: &Path,
-) -> Result<(), IngestError> {
+fn generate_audit_package(data_dir: &Path, output_path: &Path) -> Result<(), IngestError> {
+    use vledger_crypto::{hash::hash_to_hex, merkle::merkle_root, ZERO_HASH};
     use vledger_ledger::LedgerStore;
-    use vledger_crypto::{
-        hash::hash_to_hex,
-        merkle::merkle_root,
-        ZERO_HASH,
-    };
 
     let store = LedgerStore::open(data_dir)?;
     let entry_count = store.entry_count();
@@ -374,12 +359,16 @@ fn generate_audit_package(
     let mut first_sequence = 0u64;
     let mut last_sequence = 0u64;
 
-    store.stream_entries(|e| {
-        if first_sequence == 0 { first_sequence = e.sequence; }
-        last_sequence = e.sequence;
-        leaf_bytes.push(e.canonical_bytes());
-        Ok(())
-    }).map_err(IngestError::Ledger)?;
+    store
+        .stream_entries(|e| {
+            if first_sequence == 0 {
+                first_sequence = e.sequence;
+            }
+            last_sequence = e.sequence;
+            leaf_bytes.push(e.canonical_bytes());
+            Ok(())
+        })
+        .map_err(IngestError::Ledger)?;
 
     let root: [u8; 32] = if leaf_bytes.is_empty() {
         ZERO_HASH

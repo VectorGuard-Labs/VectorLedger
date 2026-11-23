@@ -1,0 +1,1 @@
+SELECT ROW_NU() OVER( A 	Sn er

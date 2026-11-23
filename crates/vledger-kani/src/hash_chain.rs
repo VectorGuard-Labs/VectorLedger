@@ -10,18 +10,16 @@
 //! which exceeds tractable bounds. Those properties are covered by the
 //! existing unit tests (hash_chain_is_consistent, verify_chain_integrity).
 
-use vledger_crypto::{
-    merkle::merkle_root,
-    Hash, ZERO_HASH,
-};
-
 // ── Harness 1: ZERO_HASH is all zeros ─────────────────────────────────────────
 
 /// Prove that ZERO_HASH is exactly [0u8; 32].
 #[cfg(kani)]
 #[kani::proof]
 pub fn zero_hash_is_all_zeros() {
-    assert_eq!(ZERO_HASH, [0u8; 32], "ZERO_HASH must be exactly 32 zero bytes");
+    assert_eq!(
+        ZERO_HASH, [0u8; 32],
+        "ZERO_HASH must be exactly 32 zero bytes"
+    );
     for b in ZERO_HASH.iter() {
         assert_eq!(*b, 0u8, "every byte of ZERO_HASH must be zero");
     }
@@ -57,7 +55,10 @@ pub fn zero_hash_copy_semantics() {
 pub fn merkle_root_empty_is_zero_hash() {
     let empty: &[[u8; 32]] = &[];
     let root = merkle_root(empty);
-    assert_eq!(root, ZERO_HASH, "merkle_root of empty slice must be ZERO_HASH");
+    assert_eq!(
+        root, ZERO_HASH,
+        "merkle_root of empty slice must be ZERO_HASH"
+    );
 }
 
 // ── Harness 5: any_hash is 32 bytes ───────────────────────────────────────────

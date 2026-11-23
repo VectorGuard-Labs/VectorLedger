@@ -454,9 +454,9 @@ mod tests {
 
     // ── P-INV-8: reversal + correction nets to correction amount ──────────
 
-    /// For any original amount and correction amount, posting original →
-    /// reversing → posting correction must result in a balance equal to
-    /// the correction amount (not the original).
+    // For any original amount and correction amount, posting original →
+    // reversing → posting correction must result in a balance equal to
+    // the correction amount (not the original).
     proptest! {
         #![proptest_config(ProptestConfig::with_cases(256))]
 
@@ -597,9 +597,7 @@ mod tests {
                     .build();
                     if store.post_entry(e).is_ok() {
                         let posted = store.entries_scan(usize::MAX)
-                            .into_iter()
-                            .rev()
-                            .next()
+                            .into_iter().next_back()
                             .unwrap();
                         entry_ids_and_hashes.push((posted.id, posted.content_hash));
                     }

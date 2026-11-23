@@ -844,7 +844,11 @@ async fn execute_query(
         ];
     }
 
-    use vledger_sql::{executor::{Executor, ReadExecutor}, parser::parse_one, planner::LogicalPlanBuilder};
+    use vledger_sql::{
+        executor::{Executor, ReadExecutor},
+        parser::parse_one,
+        planner::LogicalPlanBuilder,
+    };
 
     let stmt = match parse_one(sql) {
         Ok(s) => s,
@@ -882,7 +886,10 @@ async fn execute_query(
         ];
     }
 
-    let result = if matches!(plan, LogicalPlan::PostEntry(_) | LogicalPlan::CreateAccount(_)) {
+    let result = if matches!(
+        plan,
+        LogicalPlan::PostEntry(_) | LogicalPlan::CreateAccount(_)
+    ) {
         let mut ledger = ledger.write().await;
         Executor::new(&mut ledger).execute(plan)
     } else {
@@ -958,7 +965,11 @@ async fn execute_query(
                         "Merkle root: {} ({} leaf{}, verified: {})",
                         hex::encode(proof.root),
                         proof.leaf_proofs.len(),
-                        if proof.leaf_proofs.len() == 1 { "" } else { "s" },
+                        if proof.leaf_proofs.len() == 1 {
+                            ""
+                        } else {
+                            "s"
+                        },
                         proof.root_signature.is_some(),
                     );
                     msgs.push(messages::notice_response(&notice));

@@ -35,10 +35,22 @@ mod tests {
 
     fn setup_accounts(store: &mut LedgerStore) -> (Uuid, Uuid) {
         let cash = store
-            .create_account(Account::new("CASH", "Cash", AccountType::Asset, "USD", "test"))
+            .create_account(Account::new(
+                "CASH",
+                "Cash",
+                AccountType::Asset,
+                "USD",
+                "test",
+            ))
             .unwrap();
         let rev = store
-            .create_account(Account::new("REV", "Revenue", AccountType::Income, "USD", "test"))
+            .create_account(Account::new(
+                "REV",
+                "Revenue",
+                AccountType::Income,
+                "USD",
+                "test",
+            ))
             .unwrap();
         (cash, rev)
     }
@@ -98,7 +110,9 @@ mod tests {
         store.mark_pending(entry_id, None).unwrap();
         assert_eq!(store.effective_status(&entry_id), EntryStatus::Pending);
 
-        store.mark_settled(entry_id, Some("SWIFT ref MT103-2026".into())).unwrap();
+        store
+            .mark_settled(entry_id, Some("SWIFT ref MT103-2026".into()))
+            .unwrap();
         assert_eq!(
             store.effective_status(&entry_id),
             EntryStatus::Settled,
@@ -118,7 +132,9 @@ mod tests {
         let entry_id = post_entry(&mut store, cash, rev, 2_000);
 
         store.mark_pending(entry_id, None).unwrap();
-        store.mark_failed(entry_id, Some("Insufficient funds at correspondent".into())).unwrap();
+        store
+            .mark_failed(entry_id, Some("Insufficient funds at correspondent".into()))
+            .unwrap();
 
         assert_eq!(
             store.effective_status(&entry_id),
@@ -392,10 +408,22 @@ mod tests {
         let cash_id = {
             let mut store = LedgerStore::open(dir.path()).unwrap();
             let cash = store
-                .create_account(Account::new("CASH", "Cash", AccountType::Asset, "USD", "test"))
+                .create_account(Account::new(
+                    "CASH",
+                    "Cash",
+                    AccountType::Asset,
+                    "USD",
+                    "test",
+                ))
                 .unwrap();
             store
-                .create_account(Account::new("REV", "Revenue", AccountType::Income, "USD", "test"))
+                .create_account(Account::new(
+                    "REV",
+                    "Revenue",
+                    AccountType::Income,
+                    "USD",
+                    "test",
+                ))
                 .unwrap();
             store.place_legal_hold(&cash).unwrap();
             cash
@@ -418,7 +446,13 @@ mod tests {
         let cash_id = {
             let mut store = LedgerStore::open(dir.path()).unwrap();
             let cash = store
-                .create_account(Account::new("CASH", "Cash", AccountType::Asset, "USD", "test"))
+                .create_account(Account::new(
+                    "CASH",
+                    "Cash",
+                    AccountType::Asset,
+                    "USD",
+                    "test",
+                ))
                 .unwrap();
             store.place_legal_hold(&cash).unwrap();
             store.lift_legal_hold(&cash).unwrap();

@@ -773,6 +773,8 @@ License files (`license.json`) are Ed25519-signed by VectorGuard Labs and verifi
 
 Contact `pavon@vectorguardlabs.com` to purchase or renew a license.
 
+**If a license lapses or is cancelled,** the server falls back to the Free tier at the next UTC midnight. Your data is never locked: the ledger stays readable and writable, and `vledger export`, `backup`, `restore`, `verify`, and `audit-package` keep working. Only paid features turn off (pgwire, replication, MCP/AI, compliance reports, HSM setup, and audit-log export beyond 30 days). To leave VectorLedger entirely, see [DECOMMISSION.md](./DECOMMISSION.md).
+
 Check your current license:
 ```bash
 vledger license --data-dir ./vledger-data
@@ -822,6 +824,12 @@ vledger-bench \
 ### Unreleased
 
 - **Fixed — the Python, Go and TypeScript clients could not log in:** release builds of the server require an `auth` frame first and a session token on every request, but none of the three SDKs sent either, so every query was refused. All three now accept `username`/`password` (Go: `Options.Username`/`Password`), authenticate on connect and on reconnect, and raise a distinct auth error (`VledgerAuthError`). Also fixed: Python `with VledgerClient.connect(...)` opened an extra TLS connection to the default host and port; the Go `TLSCACert` option was documented but never loaded; Go `Balance` failed on the string cells the server returns; `verify_chain` now includes the server's integrity-failure message. Go README example no longer passes a bool to the `*bool` `UseTLS` field.
+- **Added `vledger export`:** exports accounts, balances, journal entries, and journal lines to CSV/JSONL with a BLAKE3 manifest. Works on every tier, verifies the hash chain first, and refuses to overwrite existing files. New `LedgerExported` audit event.
+- **Added [DECOMMISSION.md](./DECOMMISSION.md):** step-by-step procedure for exporting, archiving, and removing a deployment, including the case of a lapsed license.
+- **Fixed — backups made from a symlinked or relative data directory could not be restored:** archive entries were stored under the full absolute path, so `vledger restore` produced nested directories and an empty ledger. The data directory is now canonicalized before relative names are computed. Backups made with earlier versions from such a path should be re-taken; run `tar tf <archive>` and check that names look like `wal/…`, not `wal//…`.
+- **Fixed — `sql_verify_chain_detects_tamper` and the self-test tamper phase:** the test-only tamper helper was blocked by the v1.8.0 append-only trigger. The helper now bypasses the trigger the way an attacker with raw file access would. No release-code behavior changed.
+- **Dependencies:** `rusqlite` 0.31 → 0.43 (`libsqlite3-sys` 0.28 → 0.40), resolving RUSTSEC-2026-0459.
+- **Docs:** documented what happens to data access when a license lapses.
 
 ### v1.8.0
 
@@ -994,6 +1002,7 @@ unique_constraint_prevents_duplicate_without_app_layer_check` (bypasses `post_en
 ## Further Reading
 
 - **[OPERATIONS.md](./OPERATIONS.md)** — Installation, upgrade procedures, configuration reference, full CLI command reference, backup/restore, key rotation, replication, HSM integration, pgwire setup, MCP server setup, user management, license management, compliance reports, audit log management, self-test suite, security hardening checklist, performance tuning, failure modes and recovery, SQL syntax notes, and RPO/RTO objectives.
+- **[DECOMMISSION.md](./DECOMMISSION.md)** — Exporting, archiving, and safely removing a VectorLedger deployment, including after a license lapses.
 - **[SECURITY.md](./SECURITY.md)** — Security model, all cryptographic primitives and formulas, hash chain and Merkle commitment design, key management architecture, HSM support, four-eyes workflow, audit trail, compliance engine, authentication and session security, transport security, RBAC, threat model, secure release process, bug fixes and security advisories, known limitations, and fuzz-found vulnerabilities.
 - **VectorGuard Labs:** https://vectorguardlabs.com
 - **Security reports:** security@vectorguardlabs.com

@@ -101,13 +101,11 @@ async fn main() -> Result<()> {
 
     let catalog_dir = cli.data_dir.join("catalog");
     let user_store = Arc::new(
-        vledger_server::UserStore::open(&catalog_dir)
-            .context("Failed to open user store")?,
+        vledger_server::UserStore::open(&catalog_dir).context("Failed to open user store")?,
     );
 
     let ledger = Arc::new(RwLock::new(
-        vledger_ledger::LedgerStore::open(&cli.data_dir)
-            .context("Failed to open ledger")?,
+        vledger_ledger::LedgerStore::open(&cli.data_dir).context("Failed to open ledger")?,
     ));
 
     info!(

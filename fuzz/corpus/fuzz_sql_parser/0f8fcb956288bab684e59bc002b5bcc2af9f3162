@@ -1,0 +1,1 @@
+sELECT COUNT(s)eq FROM l

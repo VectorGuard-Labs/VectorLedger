@@ -6,15 +6,10 @@
 
 #[cfg(test)]
 mod tests {
-    use std::path::Path;
+
     use tempfile::TempDir;
 
-    use crate::{
-        ComplianceEngine,
-        ComplianceStandard,
-        EvidenceStatus,
-        ReportDateRange,
-    };
+    use crate::{ComplianceEngine, ComplianceStandard, EvidenceStatus, ReportDateRange};
 
     // ── Helpers ───────────────────────────────────────────────────────────
 
@@ -99,8 +94,8 @@ mod tests {
     fn report_on_empty_dir_does_not_panic() {
         let dir = TempDir::new().unwrap();
         let engine = ComplianceEngine::new(dir.path().to_path_buf());
-        let result = engine
-            .generate_report(ComplianceStandard::Soc2, ReportDateRange::last_90_days());
+        let result =
+            engine.generate_report(ComplianceStandard::Soc2, ReportDateRange::last_90_days());
         assert!(
             result.is_ok(),
             "generate_report must not fail on an empty dir (evidence items may be fail/na)"
@@ -164,7 +159,11 @@ mod tests {
             .iter()
             .find(|e| e.control_id == "CC6.6")
             .expect("CC6.6 must be present in SOC 2 report");
-        assert_eq!(cc6_6.status, EvidenceStatus::Pass, "CC6.6 must pass when pages/ exists");
+        assert_eq!(
+            cc6_6.status,
+            EvidenceStatus::Pass,
+            "CC6.6 must pass when pages/ exists"
+        );
     }
 
     /// CC6.7 (TLS config) warns when no CA-signed cert is present.
@@ -272,7 +271,11 @@ mod tests {
             .iter()
             .find(|e| e.control_id == "A1.1")
             .expect("A1.1 must be present");
-        assert_eq!(a1_1.status, EvidenceStatus::Pass, "A1.1 must pass when replication.json exists");
+        assert_eq!(
+            a1_1.status,
+            EvidenceStatus::Pass,
+            "A1.1 must pass when replication.json exists"
+        );
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -321,8 +324,14 @@ mod tests {
             .unwrap();
         let json = report.to_json().unwrap();
         let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
-        assert!(parsed.get("standard").is_some(), "JSON must contain 'standard' field");
-        assert!(parsed.get("evidence").is_some(), "JSON must contain 'evidence' field");
+        assert!(
+            parsed.get("standard").is_some(),
+            "JSON must contain 'standard' field"
+        );
+        assert!(
+            parsed.get("evidence").is_some(),
+            "JSON must contain 'evidence' field"
+        );
     }
 
     /// ComplianceReport::to_markdown() produces a string containing control IDs.
@@ -346,7 +355,7 @@ mod tests {
         let range = ReportDateRange::last_90_days();
         let span = (range.to - range.from).num_days();
         assert!(
-            span >= 89 && span <= 91,
+            (89..=91).contains(&span),
             "last_90_days must span approximately 90 days, got {span}"
         );
         assert!(range.to <= Utc::now(), "range.to must be <= now");
@@ -358,7 +367,7 @@ mod tests {
         let range = ReportDateRange::last_year();
         let span = (range.to - range.from).num_days();
         assert!(
-            span >= 364 && span <= 366,
+            (364..=366).contains(&span),
             "last_year must span approximately 365 days, got {span}"
         );
     }

@@ -98,11 +98,20 @@ fn constant_fold(plan: LogicalPlan) -> LogicalPlan {
 pub fn explain(plan: &LogicalPlan, indent: usize) -> String {
     let pad = "  ".repeat(indent);
     match plan {
-        LogicalPlan::ScanEntries { filter, projections } => format!("{pad}ScanEntries {{ filter: {filter:?}, projections: {projections:?} }}"),
-        LogicalPlan::ScanLedgerLines { filter, projections } => {
+        LogicalPlan::ScanEntries {
+            filter,
+            projections,
+        } => format!("{pad}ScanEntries {{ filter: {filter:?}, projections: {projections:?} }}"),
+        LogicalPlan::ScanLedgerLines {
+            filter,
+            projections,
+        } => {
             format!("{pad}ScanLedgerLines {{ filter: {filter:?}, projections: {projections:?} }}")
         }
-        LogicalPlan::ScanAccounts { filter, projections } => {
+        LogicalPlan::ScanAccounts {
+            filter,
+            projections,
+        } => {
             format!("{pad}ScanAccounts {{ filter: {filter:?}, projections: {projections:?} }}")
         }
         LogicalPlan::GetBalance { account_ref } => format!("{pad}GetBalance({account_ref})"),

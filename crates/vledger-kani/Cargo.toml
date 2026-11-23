@@ -16,3 +16,7 @@ vledger-crypto      = { workspace = true }
 vledger-wal         = { workspace = true }
 vledger-ledger      = { workspace = true }
 vledger-replication = { workspace = true }
+
+# `cfg(kani)` is set by the Kani verifier, not by cargo.
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(kani)'] }

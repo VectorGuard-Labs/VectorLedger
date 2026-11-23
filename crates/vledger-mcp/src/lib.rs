@@ -28,16 +28,17 @@
 //! // McpServer::run() binds and serves until the shutdown token fires.
 //! ```
 
-pub mod tools;
-pub mod network;
 pub mod counter;
+pub mod network;
+pub mod tools;
 
 use std::sync::{Arc, RwLock};
 
 use anyhow::Result;
 use axum::extract::State;
 use axum::response::sse::{Event, Sse};
-use axum::response::IntoResponse;use axum::routing::{get, post};
+use axum::response::IntoResponse;
+use axum::routing::{get, post};
 use axum::{Json, Router};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -48,7 +49,7 @@ use tracing::info;
 use vledger_ledger::LedgerStore;
 use vledger_server::auth::{Session, UserStore};
 
-pub use counter::{AgentQueryCounter, RunCounter, LIMIT_STARTER, LIMIT_GROWTH, LIMIT_UNLIMITED};
+pub use counter::{AgentQueryCounter, RunCounter, LIMIT_GROWTH, LIMIT_STARTER, LIMIT_UNLIMITED};
 
 // ── Public configuration ──────────────────────────────────────────────────────
 
@@ -119,7 +120,12 @@ pub struct JsonRpcError {
 
 impl JsonRpcResponse {
     pub fn ok(id: Option<Value>, result: Value) -> Self {
-        Self { jsonrpc: "2.0".to_string(), id, result: Some(result), error: None }
+        Self {
+            jsonrpc: "2.0".to_string(),
+            id,
+            result: Some(result),
+            error: None,
+        }
     }
 
     pub fn err(id: Option<Value>, code: i64, message: impl Into<String>) -> Self {
@@ -127,7 +133,10 @@ impl JsonRpcResponse {
             jsonrpc: "2.0".to_string(),
             id,
             result: None,
-            error: Some(JsonRpcError { code, message: message.into() }),
+            error: Some(JsonRpcError {
+                code,
+                message: message.into(),
+            }),
         }
     }
 }
@@ -640,7 +649,8 @@ async fn handle_message(
     Json(match resp {
         Ok(result) => JsonRpcResponse::ok(id, result),
         Err(e) => JsonRpcResponse::err(id, -32000, e.to_string()),
-    }).into_response()
+    })
+    .into_response()
 }
 
 /// `GET /health` — simple liveness check.
@@ -648,7 +658,9 @@ async fn handle_health(State(state): State<AppState>) -> impl IntoResponse {
     let counter = state.run_counter.lock().await;
     let remaining = counter.remaining();
     let last_init = state.last_initialize.lock().await;
-    let session_active = last_init.map(|t| t.elapsed().as_secs() < state.session_timeout_secs).unwrap_or(false);
+    let session_active = last_init
+        .map(|t| t.elapsed().as_secs() < state.session_timeout_secs)
+        .unwrap_or(false);
     let session_age_secs = last_init.map(|t| t.elapsed().as_secs());
     drop(last_init);
 
@@ -704,10 +716,7 @@ async fn dispatch(state: AppState, req: JsonRpcRequest) -> Result<Value> {
             if should_count {
                 let mut counter = state.run_counter.lock().await;
                 if let Err(e) = counter.consume() {
-                    return Err(anyhow::anyhow!(
-                        "Agent Query limit reached: {}",
-                        e
-                    ));
+                    return Err(anyhow::anyhow!("Agent Query limit reached: {}", e));
                 }
                 if let Some(remaining) = counter.remaining() {
                     info!(remaining, "Agent Query started (new session)");
@@ -817,10 +826,7 @@ impl McpServer {
     ///
     /// All tool calls are proxied to the running `vledger start` server.
     /// The data directory is never opened — no lock conflict.
-    pub fn new_network(
-        config: McpConfig,
-        network: Arc<network::NetworkConnection>,
-    ) -> Self {
+    pub fn new_network(config: McpConfig, network: Arc<network::NetworkConnection>) -> Self {
         Self {
             config,
             ledger: None,
@@ -841,8 +847,11 @@ impl McpServer {
 
         {
             let c = run_counter.lock().await;
-            let limit_str = if c.limit() == 0 { "unlimited".to_string() }
-                            else { c.limit().to_string() };
+            let limit_str = if c.limit() == 0 {
+                "unlimited".to_string()
+            } else {
+                c.limit().to_string()
+            };
             info!(
                 used = c.count(),
                 limit = %limit_str,
@@ -888,7 +897,8 @@ impl McpServer {
             // Kiro V3 may POST to the SSE path directly — handle both
             .route("/sse", post(handle_message))
             .fallback(handle_fallback)
-            .with_state(state)            .layer(
+            .with_state(state)
+            .layer(
                 tower_http::cors::CorsLayer::new()
                     .allow_origin(tower_http::cors::Any)
                     .allow_methods([

@@ -708,8 +708,11 @@ impl LedgerStore {
                                         sqlite_is_current = false;
 
                                         // Process this entry fully.
-                                        if entry.sequence >= self.next_sequence.load(Ordering::SeqCst) {
-                                            self.next_sequence.store(entry.sequence + 1, Ordering::SeqCst);
+                                        if entry.sequence
+                                            >= self.next_sequence.load(Ordering::SeqCst)
+                                        {
+                                            self.next_sequence
+                                                .store(entry.sequence + 1, Ordering::SeqCst);
                                         }
                                         self.last_chain_hash = entry.chain_hash;
                                         let affects_balance = matches!(
@@ -734,20 +737,31 @@ impl LedgerStore {
                                             }
                                         }
                                         if let Err(e) = self.entry_db.insert(&entry) {
-                                            warn!(sequence = entry.sequence, "entry_db insert: {e}");
+                                            warn!(
+                                                sequence = entry.sequence,
+                                                "entry_db insert: {e}"
+                                            );
                                         } else {
                                             for line in &entry.lines {
                                                 if let Err(e) = self.entry_db.insert_account_entry(
-                                                    &line.account_id, entry.sequence) {
-                                                    warn!(sequence = entry.sequence, "insert_account_entry: {e}");
+                                                    &line.account_id,
+                                                    entry.sequence,
+                                                ) {
+                                                    warn!(
+                                                        sequence = entry.sequence,
+                                                        "insert_account_entry: {e}"
+                                                    );
                                                 }
                                             }
                                             new_entry_count += 1;
                                         }
                                     } else {
                                         // Entry already in SQLite — skip, just advance counters.
-                                        if entry.sequence >= self.next_sequence.load(Ordering::SeqCst) {
-                                            self.next_sequence.store(entry.sequence + 1, Ordering::SeqCst);
+                                        if entry.sequence
+                                            >= self.next_sequence.load(Ordering::SeqCst)
+                                        {
+                                            self.next_sequence
+                                                .store(entry.sequence + 1, Ordering::SeqCst);
                                         }
                                         self.last_chain_hash = entry.chain_hash;
                                         self.next_entry_page += 1;
@@ -788,14 +802,20 @@ impl LedgerStore {
                                             }
                                         }
                                         if let Err(e) = self.entry_db.insert(&entry) {
-                                            warn!(sequence = entry.sequence, "entry_db insert: {e}");
+                                            warn!(
+                                                sequence = entry.sequence,
+                                                "entry_db insert: {e}"
+                                            );
                                         } else {
                                             for line in &entry.lines {
                                                 if let Err(e) = self.entry_db.insert_account_entry(
                                                     &line.account_id,
                                                     entry.sequence,
                                                 ) {
-                                                    warn!(sequence = entry.sequence, "insert_account_entry: {e}");
+                                                    warn!(
+                                                        sequence = entry.sequence,
+                                                        "insert_account_entry: {e}"
+                                                    );
                                                 }
                                             }
                                             new_entry_count += 1;
@@ -855,8 +875,12 @@ impl LedgerStore {
             }
 
             info!("Rebuilding balance cache from SQLite index...");
-            self.entry_db.rebuild_balance_cache(&self.accounts, &mut self.balance_cache)?;
-            info!("Balance cache rebuilt ({} accounts)", self.balance_cache.len());
+            self.entry_db
+                .rebuild_balance_cache(&self.accounts, &mut self.balance_cache)?;
+            info!(
+                "Balance cache rebuilt ({} accounts)",
+                self.balance_cache.len()
+            );
         }
 
         info!(
@@ -1623,12 +1647,10 @@ impl LedgerStore {
     /// Full-text search over entry metadata using the FTS5 index.
     /// Returns matching entries in sequence order up to `limit`.
     /// Near-instant regardless of ledger size — uses the SQLite FTS5 index.
-    pub fn search_metadata(
-        &self,
-        query: &str,
-        limit: usize,
-    ) -> Vec<JournalEntry> {
-        self.entry_db.search_metadata(query, limit).unwrap_or_default()
+    pub fn search_metadata(&self, query: &str, limit: usize) -> Vec<JournalEntry> {
+        self.entry_db
+            .search_metadata(query, limit)
+            .unwrap_or_default()
     }
 
     /// Rebuild the FTS5 metadata index from all existing entries.
@@ -1752,7 +1774,12 @@ impl LedgerStore {
                     Ok(d) => d,
                     Err(_) => return false,
                 };
-                self.entry_db.tamper_replace(seq, &data).unwrap_or(false)
+                self.entry_db
+                    .tamper_replace(seq, &data)
+                    .unwrap_or_else(|e| {
+                        tracing::error!("tamper_replace failed: {e}");
+                        false
+                    })
             }
             _ => false,
         }
@@ -2053,7 +2080,9 @@ impl LedgerStore {
     ///
     /// Use this instead of the bare `reconcile()` whenever you want an
     /// auditable history of reconciliation runs.
-    pub fn reconcile_and_record(&mut self) -> Result<(Vec<ReconciliationDiscrepancy>, ReconciliationRecord), LedgerError> {
+    pub fn reconcile_and_record(
+        &mut self,
+    ) -> Result<(Vec<ReconciliationDiscrepancy>, ReconciliationRecord), LedgerError> {
         let discrepancies = self.reconcile();
 
         let entries_scanned = self.entry_count() as u64;
@@ -2064,15 +2093,18 @@ impl LedgerStore {
 
         // Serialise discrepancy details to a compact JSON array.
         let discrepancy_json = {
-            let arr: Vec<serde_json::Value> = discrepancies.iter().map(|d| {
-                serde_json::json!({
-                    "account_id":   d.account_id.to_string(),
-                    "account_code": d.account_code,
-                    "cached":       d.cached_balance,
-                    "recomputed":   d.recomputed_balance,
-                    "delta":        d.delta,
+            let arr: Vec<serde_json::Value> = discrepancies
+                .iter()
+                .map(|d| {
+                    serde_json::json!({
+                        "account_id":   d.account_id.to_string(),
+                        "account_code": d.account_code,
+                        "cached":       d.cached_balance,
+                        "recomputed":   d.recomputed_balance,
+                        "delta":        d.delta,
+                    })
                 })
-            }).collect();
+                .collect();
             serde_json::to_string(&arr).unwrap_or_else(|_| "[]".into())
         };
 
@@ -2090,7 +2122,12 @@ impl LedgerStore {
         // Persist to WAL — this is an append-only write, consistent with
         // the rest of the event-sourced design.
         let bytes = encode(&record)?;
-        self.persist_row(TABLE_RECONCILIATION_EVENTS, &bytes, MutationKind::Insert, None)?;
+        self.persist_row(
+            TABLE_RECONCILIATION_EVENTS,
+            &bytes,
+            MutationKind::Insert,
+            None,
+        )?;
 
         info!(
             run_id = %record.id,
@@ -2191,7 +2228,8 @@ impl LedgerStore {
             acct.account_type,
             crate::account::AccountType::Asset | crate::account::AccountType::Expense
         );
-        let entries = self.entry_db
+        let entries = self
+            .entry_db
             .entries_for_account(account_id)
             .unwrap_or_default();
 
@@ -2230,10 +2268,9 @@ impl LedgerStore {
     /// Provides a consistent read view of the ledger as of a point captured
     /// by `current_snapshot()`.
     pub fn entries_at_snapshot(&self, snapshot_seq: u64) -> Vec<crate::entry::JournalEntry> {
-        let all = self.entry_db
+        self.entry_db
             .scan_range(1, snapshot_seq)
-            .unwrap_or_default();
-        all
+            .unwrap_or_default()
     }
 }
 

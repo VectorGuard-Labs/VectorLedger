@@ -1,0 +1,1 @@
+INSERT INTO accnts (ce,name,account_type,in) VALUES ('A','	est')

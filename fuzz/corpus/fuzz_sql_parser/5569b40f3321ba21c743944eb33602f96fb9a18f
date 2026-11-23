@@ -1,0 +1,1 @@
+SELECT U() OVER () AS rn FROM ledger

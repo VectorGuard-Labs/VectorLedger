@@ -1,0 +1,1 @@
+SELECT R FROM(( SELECT R|G-ff UM,BER() OVER (s 0C1->

@@ -89,13 +89,22 @@ impl AgentQueryCounter {
                     }
                     _ => {
                         info!(month = %current_month, "Agent Query counter reset for new month");
-                        CounterState { month: current_month, count: 0 }
+                        CounterState {
+                            month: current_month,
+                            count: 0,
+                        }
                     }
                 },
-                Err(_) => CounterState { month: current_month, count: 0 },
+                Err(_) => CounterState {
+                    month: current_month,
+                    count: 0,
+                },
             }
         } else {
-            CounterState { month: current_month, count: 0 }
+            CounterState {
+                month: current_month,
+                count: 0,
+            }
         };
 
         Ok(Self { path, state, limit })
@@ -135,7 +144,10 @@ impl AgentQueryCounter {
         let current_month = current_month_str();
         if self.state.month != current_month {
             info!(month = %current_month, "Agent Query counter reset for new month");
-            self.state = CounterState { month: current_month, count: 0 };
+            self.state = CounterState {
+                month: current_month,
+                count: 0,
+            };
         }
 
         if self.limit != LIMIT_UNLIMITED && self.state.count >= self.limit {

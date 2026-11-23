@@ -1,0 +1,1 @@
+SELECT VER () AS rn FROM ledger

@@ -33,7 +33,7 @@ impl PkceChallenge {
     pub fn generate() -> Self {
         // Generate 60 random bytes → hex string (120 chars) → take first 80
         let mut bytes = [0u8; 60];
-        rand::rngs::OsRng::default().fill_bytes(&mut bytes);
+        rand::rngs::OsRng.fill_bytes(&mut bytes);
         let verifier: String = bytes
             .iter()
             .map(|b| format!("{b:02x}"))
@@ -43,7 +43,10 @@ impl PkceChallenge {
             .collect();
 
         let challenge = Self::derive_challenge(&verifier);
-        PkceChallenge { verifier, challenge }
+        PkceChallenge {
+            verifier,
+            challenge,
+        }
     }
 
     /// Derive the challenge from a verifier string.
@@ -115,8 +118,9 @@ fn urlenccode(s: &str) -> String {
     let mut encoded = String::new();
     for byte in s.bytes() {
         match byte {
-            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9'
-            | b'-' | b'_' | b'.' | b'~' => encoded.push(byte as char),
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                encoded.push(byte as char)
+            }
             b' ' => encoded.push('+'),
             _ => encoded.push_str(&format!("%{byte:02X}")),
         }
@@ -145,9 +149,11 @@ pub fn wait_for_redirect(port: u16, expected_state: &str) -> Result<String, Core
         .map_err(|e| CoreBankingError::Network(format!("accept error: {e}")))?;
 
     // Read the HTTP request line
-    let mut reader = BufReader::new(stream.try_clone().map_err(|e| {
-        CoreBankingError::Network(format!("stream clone error: {e}"))
-    })?);
+    let mut reader = BufReader::new(
+        stream
+            .try_clone()
+            .map_err(|e| CoreBankingError::Network(format!("stream clone error: {e}")))?,
+    );
     let mut request_line = String::new();
     reader
         .read_line(&mut request_line)
@@ -156,7 +162,8 @@ pub fn wait_for_redirect(port: u16, expected_state: &str) -> Result<String, Core
     debug!(request_line = %request_line.trim(), "Received redirect");
 
     // Send a minimal HTTP 200 response so the browser shows something
-    let response = "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nAuthenticated. You can close this tab.";
+    let response =
+        "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\nAuthenticated. You can close this tab.";
     stream.write_all(response.as_bytes()).ok();
 
     // Parse query parameters from the request line
@@ -179,9 +186,7 @@ pub fn wait_for_redirect(port: u16, expected_state: &str) -> Result<String, Core
 
 /// Parse query parameters from an HTTP request line.
 /// e.g. `GET /dynamic?code=ABC&state=XYZ HTTP/1.1`
-fn parse_query_from_request_line(
-    line: &str,
-) -> Result<HashMap<String, String>, CoreBankingError> {
+fn parse_query_from_request_line(line: &str) -> Result<HashMap<String, String>, CoreBankingError> {
     let path = line
         .split_whitespace()
         .nth(1)
@@ -237,7 +242,7 @@ pub async fn exchange_code(
     ];
 
     let resp = client
-        .post(&config.token_url())
+        .post(config.token_url())
         .form(&params)
         .send()
         .await
@@ -275,18 +280,15 @@ pub fn extract_user_id(id_token: &str) -> Result<String, CoreBankingError> {
 
     let decoded = URL_SAFE_NO_PAD
         .decode(payload_b64)
-        .or_else(|_| {
-            base64::engine::general_purpose::STANDARD.decode(&padded)
-        })
+        .or_else(|_| base64::engine::general_purpose::STANDARD.decode(&padded))
         .map_err(|e| CoreBankingError::Auth(format!("base64 decode error: {e}")))?;
 
     let claims: serde_json::Value = serde_json::from_slice(&decoded)
         .map_err(|e| CoreBankingError::Auth(format!("JWT payload parse error: {e}")))?;
 
-    claims["sub"]
-        .as_str()
-        .map(String::from)
-        .ok_or_else(|| CoreBankingError::Auth("'sub' claim missing from identity token".to_string()))
+    claims["sub"].as_str().map(String::from).ok_or_else(|| {
+        CoreBankingError::Auth("'sub' claim missing from identity token".to_string())
+    })
 }
 
 #[cfg(test)]
@@ -326,7 +328,8 @@ mod tests {
 
     #[test]
     fn parse_query_extracts_code_and_state() {
-        let line = "GET /dynamic?code=test_code_123&state=abc&iss=https%3A%2F%2Fexample.com HTTP/1.1";
+        let line =
+            "GET /dynamic?code=test_code_123&state=abc&iss=https%3A%2F%2Fexample.com HTTP/1.1";
         let params = parse_query_from_request_line(line).unwrap();
         assert_eq!(params.get("code").unwrap(), "test_code_123");
         assert_eq!(params.get("state").unwrap(), "abc");

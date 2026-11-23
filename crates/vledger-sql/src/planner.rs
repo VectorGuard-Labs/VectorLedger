@@ -27,17 +27,26 @@ const TABLE_ACCOUNTS: &str = "accounts";
 #[derive(Debug, Clone)]
 pub enum LogicalPlan {
     /// SELECT * FROM ledger [WHERE …]
-    ScanEntries { filter: Option<EntryFilter>, projections: Vec<String> },
+    ScanEntries {
+        filter: Option<EntryFilter>,
+        projections: Vec<String>,
+    },
 
     /// SELECT * FROM ledger_lines [WHERE …]
     ///
     /// Returns one row per journal line instead of one row per entry.
     /// Each row shows: sequence, date, account_id, description, domain,
     /// dr_cr, amount, currency — the traditional accountant's ledger view.
-    ScanLedgerLines { filter: Option<EntryFilter>, projections: Vec<String> },
+    ScanLedgerLines {
+        filter: Option<EntryFilter>,
+        projections: Vec<String>,
+    },
 
     /// SELECT * FROM accounts [WHERE …]
-    ScanAccounts { filter: Option<EntryFilter>, projections: Vec<String> },
+    ScanAccounts {
+        filter: Option<EntryFilter>,
+        projections: Vec<String>,
+    },
 
     /// SELECT BALANCE('<account_code_or_id>')
     GetBalance { account_ref: String },
@@ -235,7 +244,10 @@ pub enum EntryFilter {
     BySequenceIn(Vec<u64>),
     /// WHERE col IN ('a', 'b', 'c') — multi-value string filter.
     /// Carries the column name and the list of values.
-    ByValueIn { column: String, values: Vec<String> },
+    ByValueIn {
+        column: String,
+        values: Vec<String>,
+    },
     /// WHERE metadata = 'exact json string' — exact metadata match.
     ByMetadataEq(String),
     /// WHERE metadata LIKE '%value%' — substring search within the metadata blob.
@@ -485,7 +497,10 @@ impl LogicalPlanBuilder {
                         filter: Some(EntryFilter::Limit(n)),
                         projections,
                     }),
-                    TABLE_ACCOUNTS => Ok(LogicalPlan::ScanAccounts { filter: None, projections }),
+                    TABLE_ACCOUNTS => Ok(LogicalPlan::ScanAccounts {
+                        filter: None,
+                        projections,
+                    }),
                     t => Err(SqlError::UnknownTable(t.into())),
                 };
             }
@@ -496,9 +511,18 @@ impl LogicalPlanBuilder {
 
         let projections = parse_projections(&body.projection);
         match primary_table.as_str() {
-            TABLE_LEDGER => Ok(LogicalPlan::ScanEntries { filter, projections }),
-            TABLE_LEDGER_LINES => Ok(LogicalPlan::ScanLedgerLines { filter, projections }),
-            TABLE_ACCOUNTS => Ok(LogicalPlan::ScanAccounts { filter, projections }),
+            TABLE_LEDGER => Ok(LogicalPlan::ScanEntries {
+                filter,
+                projections,
+            }),
+            TABLE_LEDGER_LINES => Ok(LogicalPlan::ScanLedgerLines {
+                filter,
+                projections,
+            }),
+            TABLE_ACCOUNTS => Ok(LogicalPlan::ScanAccounts {
+                filter,
+                projections,
+            }),
             t => Err(SqlError::UnknownTable(t.into())),
         }
     }
@@ -746,8 +770,7 @@ fn parse_where_to_entry_filter(table: &str, expr: Expr) -> Result<EntryFilter, S
         };
 
         // Collect all values from the IN list.
-        let values: Result<Vec<String>, SqlError> =
-            list.iter().map(expr_to_string).collect();
+        let values: Result<Vec<String>, SqlError> = list.iter().map(expr_to_string).collect();
         let values = values?;
 
         if values.is_empty() {
@@ -755,9 +778,7 @@ fn parse_where_to_entry_filter(table: &str, expr: Expr) -> Result<EntryFilter, S
         }
 
         // sequence IN (1, 2, 3) — use dedicated typed variant.
-        if col == "sequence"
-            && matches!(table, t if t == TABLE_LEDGER || t == TABLE_LEDGER_LINES)
-        {
+        if col == "sequence" && matches!(table, t if t == TABLE_LEDGER || t == TABLE_LEDGER_LINES) {
             let seqs: Result<Vec<u64>, _> = values.iter().map(|v| v.parse::<u64>()).collect();
             let seqs = seqs.map_err(|_| {
                 SqlError::TypeError("sequence values in IN list must be integers".into())
@@ -766,7 +787,10 @@ fn parse_where_to_entry_filter(table: &str, expr: Expr) -> Result<EntryFilter, S
         }
 
         // Generic column IN (...) — string values.
-        return Ok(EntryFilter::ByValueIn { column: col, values });
+        return Ok(EntryFilter::ByValueIn {
+            column: col,
+            values,
+        });
     }
 
     // ── NOT IN — unsupported ─────────────────────────────────────────────
@@ -802,9 +826,7 @@ fn parse_where_to_entry_filter(table: &str, expr: Expr) -> Result<EntryFilter, S
                 ))
             }
         };
-        if col == "metadata"
-            && matches!(table, t if t == TABLE_LEDGER || t == TABLE_LEDGER_LINES)
-        {
+        if col == "metadata" && matches!(table, t if t == TABLE_LEDGER || t == TABLE_LEDGER_LINES) {
             let raw = expr_to_string(pattern)?;
             // Strip leading/trailing SQL '%' wildcards to get the search term,
             // then route through the FTS5 index for fast indexed search.
@@ -846,7 +868,9 @@ fn parse_where_to_entry_filter(table: &str, expr: Expr) -> Result<EntryFilter, S
             }
             (TABLE_LEDGER | TABLE_LEDGER_LINES, "domain") => Ok(EntryFilter::ByDomain(val)),
             (TABLE_LEDGER | TABLE_LEDGER_LINES, "status") => Ok(EntryFilter::ByStatus(val)),
-            (TABLE_LEDGER | TABLE_LEDGER_LINES, "metadata") => Ok(EntryFilter::ByMetadataSearch(val)),
+            (TABLE_LEDGER | TABLE_LEDGER_LINES, "metadata") => {
+                Ok(EntryFilter::ByMetadataSearch(val))
+            }
             (TABLE_LEDGER_LINES, "dr_cr") => Ok(EntryFilter::ByDrCr(val)),
             (TABLE_ACCOUNTS, "id") => Ok(EntryFilter::ByAccountId(val)),
             (TABLE_ACCOUNTS, "code") => Ok(EntryFilter::ByAccountCode(val)),
@@ -883,9 +907,18 @@ fn base_scan(
         None
     };
     match table {
-        TABLE_LEDGER => Ok(LogicalPlan::ScanEntries { filter, projections: vec![] }),
-        TABLE_LEDGER_LINES => Ok(LogicalPlan::ScanLedgerLines { filter, projections: vec![] }),
-        TABLE_ACCOUNTS => Ok(LogicalPlan::ScanAccounts { filter, projections: vec![] }),
+        TABLE_LEDGER => Ok(LogicalPlan::ScanEntries {
+            filter,
+            projections: vec![],
+        }),
+        TABLE_LEDGER_LINES => Ok(LogicalPlan::ScanLedgerLines {
+            filter,
+            projections: vec![],
+        }),
+        TABLE_ACCOUNTS => Ok(LogicalPlan::ScanAccounts {
+            filter,
+            projections: vec![],
+        }),
         t => Err(SqlError::UnknownTable(t.into())),
     }
 }

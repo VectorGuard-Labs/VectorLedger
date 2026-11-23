@@ -146,12 +146,12 @@ fn map_account_type(normalized: &NormalizedAccount) -> AccountType {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::Path;
+    use chrono::Utc;
+
     use tempfile::TempDir;
     use vledger_banking_core::types::{
         AccountStatus, AccountType as BankAccountType, Currency, MinorUnits, NormalizedAccount,
     };
-    use chrono::Utc;
 
     fn open_test_store(dir: &TempDir) -> LedgerStore {
         std::fs::create_dir_all(dir.path().join("wal")).unwrap();
@@ -198,7 +198,10 @@ mod tests {
         assert!(result1.created);
 
         let result2 = ensure_account(&mut store, &normalized).unwrap();
-        assert!(!result2.created, "second call should not create a new account");
+        assert!(
+            !result2.created,
+            "second call should not create a new account"
+        );
         assert_eq!(result1.account_id, result2.account_id);
     }
 

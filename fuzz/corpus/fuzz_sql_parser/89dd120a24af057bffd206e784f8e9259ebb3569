@@ -1,0 +1,1 @@
+INSERT  accounts (code,na) VALUES (+'AEnt')

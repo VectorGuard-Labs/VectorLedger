@@ -1,8 +1,8 @@
-/// Regression tests for financial correctness guarantees.
-///
-/// These tests turn real-world workflows into permanent product guarantees
-/// that must pass on every release. Adding a test here means the behaviour
-/// is contractually guaranteed and cannot regress silently.
+//! Regression tests for financial correctness guarantees.
+//!
+//! These tests turn real-world workflows into permanent product guarantees
+//! that must pass on every release. Adding a test here means the behaviour
+//! is contractually guaranteed and cannot regress silently.
 
 #[cfg(test)]
 mod tests {
@@ -38,7 +38,7 @@ mod tests {
     /// We debit the asset account and credit a no-constraint suspense account.
     fn seed_balance(store: &mut LedgerStore, asset_account: Uuid, cents: i64) {
         let mut suspense_acct = Account::new(
-            &format!("SUSPENSE-{}", uuid::Uuid::new_v4()),
+            format!("SUSPENSE-{}", uuid::Uuid::new_v4()),
             "Suspense",
             AccountType::Suspense,
             "USD",

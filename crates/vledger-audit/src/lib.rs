@@ -32,12 +32,12 @@
 //! | `BackupCreated`      | Snapshot backup created                       |
 //! | `KeyRotationStarted` | Key rotation process initiated                |
 
+#[cfg(test)]
+mod audit_tests;
 pub mod error;
 pub mod event;
 pub mod export;
 pub mod log;
-#[cfg(test)]
-mod audit_tests;
 
 pub use error::AuditError;
 pub use event::{AuditEvent, AuditEventKind};

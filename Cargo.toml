@@ -24,7 +24,7 @@ members = [
     "tools/vledger-bench",
     "crates/vledger-banking-core",
     "crates/vledger-banno-connector",
-    "crates/vledger-ingest", "crates/vledger-banno-connector", "crates/vledger-ingest",
+    "crates/vledger-ingest",
 ]
 
 [workspace.package]
@@ -125,7 +125,7 @@ tower          = { version = "0.5.2" }
 tower-http     = { version = "0.6.4",  features = ["trace", "cors"] }
 
 # SQLite (via rusqlite — pure Rust bindings, bundled libsqlite3)
-rusqlite       = { version = "0.31.0", features = ["bundled"] }
+rusqlite       = { version = "0.43.0", features = ["bundled"] }
 
 # Stripe webhook / HMAC-SHA256 verification
 hmac-sha256    = { version = "1.1.7" }

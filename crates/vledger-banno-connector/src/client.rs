@@ -38,12 +38,10 @@ where
         return Err(CoreBankingError::Api { status, body });
     }
 
-    resp.json::<T>()
-        .await
-        .map_err(|e| CoreBankingError::Parse {
-            field: "response_body",
-            reason: e.to_string(),
-        })
+    resp.json::<T>().await.map_err(|e| CoreBankingError::Parse {
+        field: "response_body",
+        reason: e.to_string(),
+    })
 }
 
 /// Fetch all accounts for a user.
@@ -72,10 +70,18 @@ pub async fn fetch_transactions(
     let mut url = format!("{api_base}/users/{user_id}/accounts/{account_id}/transactions");
 
     let mut params: Vec<String> = Vec::new();
-    if let Some(s) = since  { params.push(format!("since={s}")); }
-    if let Some(u) = until  { params.push(format!("until={u}")); }
-    if let Some(l) = limit  { params.push(format!("limit={l}")); }
-    if let Some(o) = offset { params.push(format!("offset={o}")); }
+    if let Some(s) = since {
+        params.push(format!("since={s}"));
+    }
+    if let Some(u) = until {
+        params.push(format!("until={u}"));
+    }
+    if let Some(l) = limit {
+        params.push(format!("limit={l}"));
+    }
+    if let Some(o) = offset {
+        params.push(format!("offset={o}"));
+    }
 
     if !params.is_empty() {
         url.push('?');

@@ -125,7 +125,7 @@ mod tests {
         {
             let mut s = open(&dir);
             post(&mut s, cash, rev, 3_000); // seq 3 — we will corrupt its commit
-            // Drop without checkpoint — seq 3 is in WAL but checkpoint isn't written.
+                                            // Drop without checkpoint — seq 3 is in WAL but checkpoint isn't written.
         }
 
         // Corrupt the tail of the WAL segment to simulate a torn Commit record.
@@ -179,9 +179,9 @@ mod tests {
     // ─────────────────────────────────────────────────────────────────────
     #[test]
     fn segment_boundary_crash_all_committed_entries_survive() {
+        use vledger_crypto::hash::hash_bytes;
         use vledger_wal::record::{BeginPayload, CommitPayload, DataPayload, MutationKind};
         use vledger_wal::{RecordType, WalSyncMode, WalWriter};
-        use vledger_crypto::hash::hash_bytes;
 
         let dir = setup();
         let wal_dir = dir.path().join("wal");
@@ -192,18 +192,18 @@ mod tests {
         let num_transactions: u32 = 30;
 
         {
-            let mut w = WalWriter::open_with_options(
-                &wal_dir,
-                TINY_SEGMENT,
-                WalSyncMode::PerRecord,
-                None,
-            )
-            .unwrap();
+            let mut w =
+                WalWriter::open_with_options(&wal_dir, TINY_SEGMENT, WalSyncMode::PerRecord, None)
+                    .unwrap();
 
             for i in 0u64..num_transactions as u64 {
                 let tx_id = i + 1;
-                w.append_record(tx_id, RecordType::Begin, &BeginPayload { description: None })
-                    .unwrap();
+                w.append_record(
+                    tx_id,
+                    RecordType::Begin,
+                    &BeginPayload { description: None },
+                )
+                .unwrap();
 
                 let payload = format!("row-{i}").into_bytes();
                 let row_hash = hash_bytes(&payload);
@@ -260,7 +260,10 @@ mod tests {
              got {}",
             result.committed.len()
         );
-        assert!(!result.torn_write_detected, "no torn write should be flagged");
+        assert!(
+            !result.torn_write_detected,
+            "no torn write should be flagged"
+        );
 
         // Sequence numbers must be strictly monotonic across segments.
         let seqs: Vec<u64> = result
@@ -272,7 +275,8 @@ mod tests {
             assert!(
                 w[1] > w[0],
                 "sequences must be strictly increasing across segment boundary: {} -> {}",
-                w[0], w[1]
+                w[0],
+                w[1]
             );
         }
     }
@@ -287,9 +291,9 @@ mod tests {
     // ─────────────────────────────────────────────────────────────────────
     #[test]
     fn multi_entry_batch_spanning_segment_roll_fully_recovered() {
+        use vledger_crypto::hash::hash_bytes;
         use vledger_wal::record::{BeginPayload, CommitPayload, DataPayload, MutationKind};
         use vledger_wal::{RecordType, WalSyncMode, WalWriter};
-        use vledger_crypto::hash::hash_bytes;
 
         let dir = setup();
         let wal_dir = dir.path().join("wal");
@@ -301,17 +305,17 @@ mod tests {
         let tx_id: u64 = 42;
 
         {
-            let mut w = WalWriter::open_with_options(
-                &wal_dir,
-                TINY_SEGMENT,
-                WalSyncMode::PerRecord,
-                None,
-            )
-            .unwrap();
+            let mut w =
+                WalWriter::open_with_options(&wal_dir, TINY_SEGMENT, WalSyncMode::PerRecord, None)
+                    .unwrap();
 
             // Begin in segment 0.
-            w.append_record(tx_id, RecordType::Begin, &BeginPayload { description: None })
-                .unwrap();
+            w.append_record(
+                tx_id,
+                RecordType::Begin,
+                &BeginPayload { description: None },
+            )
+            .unwrap();
 
             let mut blake = blake3::Hasher::new();
             let mut row_hashes: Vec<[u8; 32]> = Vec::new();
@@ -332,7 +336,11 @@ mod tests {
                         mutation: MutationKind::Insert,
                         row_data: payload,
                         row_hash,
-                        prev_hash: if i == 0 { None } else { Some(row_hashes[i as usize - 1]) },
+                        prev_hash: if i == 0 {
+                            None
+                        } else {
+                            Some(row_hashes[i as usize - 1])
+                        },
                     },
                 )
                 .unwrap();
@@ -366,8 +374,8 @@ mod tests {
         );
 
         // Recover: the one transaction must be fully present with all data payloads.
-        let result = vledger_wal::recovery::recover_verified(&wal_dir, None)
-            .expect("recovery must succeed");
+        let result =
+            vledger_wal::recovery::recover_verified(&wal_dir, None).expect("recovery must succeed");
 
         assert_eq!(
             result.committed.len(),
@@ -419,11 +427,17 @@ mod tests {
 
         // Confirm the checkpoint file now exists.
         let cp_path = WalCheckpoint::path(dir.path());
-        assert!(cp_path.exists(), "checkpoint file must exist after open with entries");
+        assert!(
+            cp_path.exists(),
+            "checkpoint file must exist after open with entries"
+        );
 
         // Delete it to simulate loss of the checkpoint.
         std::fs::remove_file(&cp_path).unwrap();
-        assert!(!cp_path.exists(), "checkpoint file must be gone after delete");
+        assert!(
+            !cp_path.exists(),
+            "checkpoint file must be gone after delete"
+        );
 
         // Round 3: reopen with no checkpoint file — must do full WAL replay.
         let s3 = open(&dir);
@@ -597,5 +611,4 @@ mod tests {
         // The first store must still work.
         assert_eq!(_store1.entry_count(), 0);
     }
-
 }

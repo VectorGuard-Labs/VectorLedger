@@ -1,12 +1,12 @@
-/// User management and authentication tests.
-///
-/// Covers: UserStore construction, create/list/delete users, role assignment,
-/// set-role, enable/disable, password change, authentication success/failure,
-/// session token validation, and Role capability matrix.
+//! User management and authentication tests.
+//!
+//! Covers: UserStore construction, create/list/delete users, role assignment,
+//! set-role, enable/disable, password change, authentication success/failure,
+//! session token validation, and Role capability matrix.
 
 #[cfg(test)]
 mod tests {
-    use std::path::Path;
+
     use tempfile::TempDir;
 
     use crate::auth::{Role, UserStore};
@@ -20,10 +20,8 @@ mod tests {
     }
 
     fn admin_password(dir: &TempDir) -> String {
-        let creds = std::fs::read_to_string(
-            dir.path().join(".admin_initial_credentials"),
-        )
-        .expect("initial credentials file must exist");
+        let creds = std::fs::read_to_string(dir.path().join(".admin_initial_credentials"))
+            .expect("initial credentials file must exist");
         // File format: "...Password:  <pw>\n..."
         creds
             .lines()
@@ -85,7 +83,9 @@ mod tests {
             .create_user("bob", "securepass!", Role::Operator, None)
             .expect("create_user must succeed");
         let users = store.list_users();
-        assert!(users.iter().any(|(n, r, _)| n == "bob" && *r == Role::Operator));
+        assert!(users
+            .iter()
+            .any(|(n, r, _)| n == "bob" && *r == Role::Operator));
     }
 
     #[test]
@@ -106,7 +106,9 @@ mod tests {
     #[test]
     fn create_user_duplicate_username_fails() {
         let (_dir, store) = open_store();
-        store.create_user("charlie", "pw1", Role::ReadOnly, None).unwrap();
+        store
+            .create_user("charlie", "pw1", Role::ReadOnly, None)
+            .unwrap();
         let result = store.create_user("charlie", "pw2", Role::ReadOnly, None);
         assert!(result.is_err(), "duplicate username must be rejected");
     }
@@ -130,7 +132,9 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn delete_user_removes_user() {
         let (_dir, store) = open_store();
-        store.create_user("dave", "pw", Role::ReadOnly, None).unwrap();
+        store
+            .create_user("dave", "pw", Role::ReadOnly, None)
+            .unwrap();
         store.delete_user("dave").unwrap();
         let users = store.list_users();
         assert!(!users.iter().any(|(n, _, _)| n == "dave"));
@@ -150,7 +154,9 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn set_role_changes_role() {
         let (_dir, store) = open_store();
-        store.create_user("eve", "pw", Role::ReadOnly, None).unwrap();
+        store
+            .create_user("eve", "pw", Role::ReadOnly, None)
+            .unwrap();
         store.set_role("eve", Role::Operator).unwrap();
         let users = store.list_users();
         let eve = users.iter().find(|(n, _, _)| n == "eve").unwrap();
@@ -167,7 +173,9 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn set_role_persists_after_reopen() {
         let (dir, store) = open_store();
-        store.create_user("frank", "pw", Role::ReadOnly, None).unwrap();
+        store
+            .create_user("frank", "pw", Role::ReadOnly, None)
+            .unwrap();
         store.set_role("frank", Role::Auditor).unwrap();
         drop(store);
 
@@ -184,7 +192,9 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn set_enabled_false_disables_user() {
         let (_dir, store) = open_store();
-        store.create_user("grace", "pw", Role::ReadOnly, None).unwrap();
+        store
+            .create_user("grace", "pw", Role::ReadOnly, None)
+            .unwrap();
         store.set_enabled("grace", false).unwrap();
         let users = store.list_users();
         let grace = users.iter().find(|(n, _, _)| n == "grace").unwrap();
@@ -194,7 +204,9 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn set_enabled_true_re_enables_user() {
         let (_dir, store) = open_store();
-        store.create_user("henry", "pw", Role::ReadOnly, None).unwrap();
+        store
+            .create_user("henry", "pw", Role::ReadOnly, None)
+            .unwrap();
         store.set_enabled("henry", false).unwrap();
         store.set_enabled("henry", true).unwrap();
         let users = store.list_users();
@@ -209,7 +221,9 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn set_password_succeeds() {
         let (_dir, store) = open_store();
-        store.create_user("iris", "oldpass", Role::ReadOnly, None).unwrap();
+        store
+            .create_user("iris", "oldpass", Role::ReadOnly, None)
+            .unwrap();
         store.set_password("iris", "newpass").unwrap();
     }
 
@@ -228,7 +242,9 @@ mod tests {
     async fn authenticate_admin_succeeds_with_correct_password() {
         let (dir, store) = open_store();
         let pw = admin_password(&dir);
-        let session = store.authenticate("admin", &pw).expect("admin auth must succeed");
+        let session = store
+            .authenticate("admin", &pw)
+            .expect("admin auth must succeed");
         assert_eq!(session.username, "admin");
         assert_eq!(session.role, Role::Admin);
         assert!(!session.token.is_empty());
@@ -252,7 +268,9 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn authenticate_disabled_user_fails() {
         let (_dir, store) = open_store();
-        store.create_user("jack", "mypass", Role::ReadOnly, None).unwrap();
+        store
+            .create_user("jack", "mypass", Role::ReadOnly, None)
+            .unwrap();
         store.set_enabled("jack", false).unwrap();
         let result = store.authenticate("jack", "mypass");
         assert!(result.is_err(), "disabled user must not authenticate");
@@ -261,7 +279,9 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn authenticate_returns_correct_role() {
         let (_dir, store) = open_store();
-        store.create_user("kate", "pw123", Role::Auditor, None).unwrap();
+        store
+            .create_user("kate", "pw123", Role::Auditor, None)
+            .unwrap();
         let session = store.authenticate("kate", "pw123").unwrap();
         assert_eq!(session.role, Role::Auditor);
     }

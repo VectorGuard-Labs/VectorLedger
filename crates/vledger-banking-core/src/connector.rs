@@ -6,8 +6,7 @@
 
 use crate::error::CoreBankingError;
 use crate::types::{
-    AccountQuery, ConnectorStatus, NormalizedAccount,
-    NormalizedTransaction, TransactionQuery,
+    AccountQuery, ConnectorStatus, NormalizedAccount, NormalizedTransaction, TransactionQuery,
 };
 
 /// The interface every banking core connector must implement.
@@ -49,9 +48,7 @@ pub trait CoreBankingConnector: Send + Sync {
 
     /// Check that the connector can reach the source system.
     /// Should not require a valid auth token — useful for startup checks.
-    fn health_check(
-        &self,
-    ) -> impl std::future::Future<Output = ConnectorStatus> + Send;
+    fn health_check(&self) -> impl std::future::Future<Output = ConnectorStatus> + Send;
 
     /// Human-readable name of this connector (e.g. `"vledger-banno-connector"`).
     fn name(&self) -> &'static str;

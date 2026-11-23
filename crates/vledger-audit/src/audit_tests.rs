@@ -1,17 +1,14 @@
-/// Audit log tests.
-///
-/// Covers: AuditLog open/append/verify_chain, hash chaining correctness,
-/// WORM append-only semantics, event sequencing, and chain_tip tracking.
+//! Audit log tests.
+//!
+//! Covers: AuditLog open/append/verify_chain, hash chaining correctness,
+//! WORM append-only semantics, event sequencing, and chain_tip tracking.
 
 #[cfg(test)]
 mod tests {
     use tempfile::TempDir;
     use uuid::Uuid;
 
-    use crate::{
-        event::AuditEventKind,
-        log::AuditLog,
-    };
+    use crate::{event::AuditEventKind, log::AuditLog};
 
     // ── Helpers ───────────────────────────────────────────────────────────
 
@@ -102,10 +99,7 @@ mod tests {
             !event.content_hash.is_empty(),
             "content_hash must not be empty"
         );
-        assert!(
-            !event.chain_hash.is_empty(),
-            "chain_hash must not be empty"
-        );
+        assert!(!event.chain_hash.is_empty(), "chain_hash must not be empty");
     }
 
     #[test]
@@ -185,12 +179,14 @@ mod tests {
         log.append(AuditEventKind::AccountClosed {
             account_id: Uuid::new_v4(),
             caller_id: "admin".to_string(),
-        }).unwrap();
+        })
+        .unwrap();
         log.append(AuditEventKind::BackupCreated {
             path: "/tmp/backup.tar".to_string(),
             size_bytes: 1024 * 1024,
             caller_id: "admin".to_string(),
-        }).unwrap();
+        })
+        .unwrap();
 
         let count = log.verify_chain().unwrap();
         assert_eq!(count, 6);
@@ -209,7 +205,10 @@ mod tests {
         let e1 = log.append(entry_posted_event()).unwrap();
         let tip_after_1 = log.chain_tip();
 
-        assert_ne!(tip_before, tip_after_1, "tip must change after first append");
+        assert_ne!(
+            tip_before, tip_after_1,
+            "tip must change after first append"
+        );
         assert_eq!(
             tip_after_1, e1.chain_hash,
             "chain_tip must equal last event chain_hash"

@@ -136,7 +136,12 @@ impl Pkcs11Provider for SoftHsmProvider {
             .await
     }
 
-    async fn encrypt(&self, label: &str, plaintext: &[u8], aad: Option<&[u8]>) -> Result<Vec<u8>, HsmError> {
+    async fn encrypt(
+        &self,
+        label: &str,
+        plaintext: &[u8],
+        aad: Option<&[u8]>,
+    ) -> Result<Vec<u8>, HsmError> {
         self.client.encrypt(label, plaintext, aad).await
     }
 
@@ -234,10 +239,20 @@ impl Pkcs11Provider for AwsCloudHsmProvider {
     async fn generate_signing_key(&self, label: &str) -> Result<(), HsmError> {
         self.inner.generate_signing_key(label).await
     }
-    async fn encrypt(&self, label: &str, plaintext: &[u8], aad: Option<&[u8]>) -> Result<Vec<u8>, HsmError> {
+    async fn encrypt(
+        &self,
+        label: &str,
+        plaintext: &[u8],
+        aad: Option<&[u8]>,
+    ) -> Result<Vec<u8>, HsmError> {
         self.inner.encrypt(label, plaintext, aad).await
     }
-    async fn decrypt(&self, label: &str, ct: &[u8], aad: Option<&[u8]>) -> Result<Zeroizing<Vec<u8>>, HsmError> {
+    async fn decrypt(
+        &self,
+        label: &str,
+        ct: &[u8],
+        aad: Option<&[u8]>,
+    ) -> Result<Zeroizing<Vec<u8>>, HsmError> {
         self.inner.decrypt(label, ct, aad).await
     }
     async fn sign(&self, label: &str, message: &[u8]) -> Result<Vec<u8>, HsmError> {
@@ -308,10 +323,20 @@ impl Pkcs11Provider for AzureHsmProvider {
     async fn generate_signing_key(&self, label: &str) -> Result<(), HsmError> {
         self.inner.generate_signing_key(label).await
     }
-    async fn encrypt(&self, label: &str, plaintext: &[u8], aad: Option<&[u8]>) -> Result<Vec<u8>, HsmError> {
+    async fn encrypt(
+        &self,
+        label: &str,
+        plaintext: &[u8],
+        aad: Option<&[u8]>,
+    ) -> Result<Vec<u8>, HsmError> {
         self.inner.encrypt(label, plaintext, aad).await
     }
-    async fn decrypt(&self, label: &str, ct: &[u8], aad: Option<&[u8]>) -> Result<Zeroizing<Vec<u8>>, HsmError> {
+    async fn decrypt(
+        &self,
+        label: &str,
+        ct: &[u8],
+        aad: Option<&[u8]>,
+    ) -> Result<Zeroizing<Vec<u8>>, HsmError> {
         self.inner.decrypt(label, ct, aad).await
     }
     async fn sign(&self, label: &str, message: &[u8]) -> Result<Vec<u8>, HsmError> {

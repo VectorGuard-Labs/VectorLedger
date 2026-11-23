@@ -36,24 +36,24 @@ pub fn dispatch_tool(
 ) -> Result<Value> {
     match name {
         // Low-level tools
-        "query_ledger"            => tool_query_ledger(args, ledger, session),
-        "post_entry"              => tool_post_entry(args, ledger, session),
-        "get_balance"             => tool_get_balance(args, ledger, session),
-        "list_accounts"           => tool_list_accounts(args, ledger, session),
-        "query_ledger_lines"      => tool_query_ledger_lines(args, ledger, session),
-        "verify_chain"            => tool_verify_chain(args, ledger, session),
-        "merkle_root"             => tool_merkle_root(args, ledger, session),
+        "query_ledger" => tool_query_ledger(args, ledger, session),
+        "post_entry" => tool_post_entry(args, ledger, session),
+        "get_balance" => tool_get_balance(args, ledger, session),
+        "list_accounts" => tool_list_accounts(args, ledger, session),
+        "query_ledger_lines" => tool_query_ledger_lines(args, ledger, session),
+        "verify_chain" => tool_verify_chain(args, ledger, session),
+        "merkle_root" => tool_merkle_root(args, ledger, session),
         // High-order financial reasoning tools
-        "explain_balance"         => tool_explain_balance(args, ledger, session),
-        "reconcile_account"       => tool_reconcile_account(args, ledger, session),
-        "find_policy_violations"  => tool_find_policy_violations(args, ledger, session),
-        "summarize_period"        => tool_summarize_period(args, ledger, session),
-        "audit_report"            => tool_audit_report(args, ledger, session),
+        "explain_balance" => tool_explain_balance(args, ledger, session),
+        "reconcile_account" => tool_reconcile_account(args, ledger, session),
+        "find_policy_violations" => tool_find_policy_violations(args, ledger, session),
+        "summarize_period" => tool_summarize_period(args, ledger, session),
+        "audit_report" => tool_audit_report(args, ledger, session),
         // Identity and authorization tools
-        "resolve_account"         => tool_resolve_account(args, ledger, session),
+        "resolve_account" => tool_resolve_account(args, ledger, session),
         // Correction workflow tools
-        "propose_correction"      => tool_propose_correction(args, ledger, session),
-        "execute_correction"      => tool_execute_correction(args, ledger, session),
+        "propose_correction" => tool_propose_correction(args, ledger, session),
+        "execute_correction" => tool_execute_correction(args, ledger, session),
         other => anyhow::bail!("Unknown tool: {other}"),
     }
 }
@@ -87,10 +87,7 @@ fn validate_iso8601_timestamp(s: &str) -> Result<(), anyhow::Error> {
     }
     // Must start with a 4-digit year and a hyphen
     let bytes = s.as_bytes();
-    if bytes.len() < 10
-        || !bytes[0..4].iter().all(|b| b.is_ascii_digit())
-        || bytes[4] != b'-'
-    {
+    if bytes.len() < 10 || !bytes[0..4].iter().all(|b| b.is_ascii_digit()) || bytes[4] != b'-' {
         anyhow::bail!("timestamp '{}' is not a valid ISO-8601 date or datetime", s);
     }
     Ok(())
@@ -103,32 +100,32 @@ fn validate_iso8601_timestamp(s: &str) -> Result<(), anyhow::Error> {
 /// Callers must add `ESCAPE '\'` to the SQL LIKE clause when using this.
 fn escape_like(s: &str) -> String {
     s.replace('\\', "\\\\")
-     .replace('%', "\\%")
-     .replace('_', "\\_")
-     .replace('\'', "''")
+        .replace('%', "\\%")
+        .replace('_', "\\_")
+        .replace('\'', "''")
 }
 
-fn run_sql(
-    sql: &str,
-    ledger: &Arc<RwLock<LedgerStore>>,
-    session: &Session,
-) -> Result<QueryResult> {
+fn run_sql(sql: &str, ledger: &Arc<RwLock<LedgerStore>>, session: &Session) -> Result<QueryResult> {
     let stmt = parse_one(sql).map_err(|e| anyhow::anyhow!("SQL parse error: {e}"))?;
-    let plan = LogicalPlanBuilder::plan(stmt)
-        .map_err(|e| anyhow::anyhow!("SQL plan error: {e}"))?;
-    check_plan_privilege(session, &plan)
-        .map_err(|e| anyhow::anyhow!("Permission denied: {e}"))?;
+    let plan =
+        LogicalPlanBuilder::plan(stmt).map_err(|e| anyhow::anyhow!("SQL plan error: {e}"))?;
+    check_plan_privilege(session, &plan).map_err(|e| anyhow::anyhow!("Permission denied: {e}"))?;
     let mut store = ledger
         .write()
         .map_err(|_| anyhow::anyhow!("Ledger lock poisoned"))?;
-    Executor::with_proofs(&mut *store)
+    Executor::with_proofs(&mut store)
         .execute(plan)
         .map_err(|e| anyhow::anyhow!("Execution error: {e}"))
 }
 
 /// Pull a single scalar string value from the first row / first column.
 fn scalar_str(result: &QueryResult) -> Option<String> {
-    result.rows.first()?.values.first().map(ledger_value_to_string)
+    result
+        .rows
+        .first()?
+        .values
+        .first()
+        .map(ledger_value_to_string)
 }
 
 /// Pull all rows as Vec<Vec<String>>.
@@ -157,7 +154,7 @@ fn result_to_text(result: &QueryResult) -> String {
     );
     out.push('\n');
     for row in &result.rows {
-        let vals: Vec<String> = row.values.iter().map(|v| ledger_value_to_string(v)).collect();
+        let vals: Vec<String> = row.values.iter().map(ledger_value_to_string).collect();
         out.push_str(&vals.join(" | "));
         out.push('\n');
     }
@@ -174,14 +171,14 @@ fn result_to_text(result: &QueryResult) -> String {
 
 fn ledger_value_to_string(v: &LedgerValue) -> String {
     match v {
-        LedgerValue::Null         => "NULL".to_string(),
-        LedgerValue::Int(i)       => i.to_string(),
-        LedgerValue::BigInt(i)    => i.to_string(),
-        LedgerValue::Text(s)      => s.clone(),
-        LedgerValue::Bool(b)      => b.to_string(),
+        LedgerValue::Null => "NULL".to_string(),
+        LedgerValue::Int(i) => i.to_string(),
+        LedgerValue::BigInt(i) => i.to_string(),
+        LedgerValue::Text(s) => s.clone(),
+        LedgerValue::Bool(b) => b.to_string(),
         LedgerValue::Timestamp(t) => t.clone(),
-        LedgerValue::Hash(h)      => h.clone(),
-        LedgerValue::Uuid(u)      => u.clone(),
+        LedgerValue::Hash(h) => h.clone(),
+        LedgerValue::Uuid(u) => u.clone(),
     }
 }
 
@@ -203,8 +200,7 @@ fn format_amount(minor_units: i64, currency: &str) -> String {
     } else {
         let dollars = minor_units / 100;
         let cents = (minor_units % 100).abs();
-        format!("{} {:},{:02}", currency, dollars, cents)
-            .replacen(',', " ", 0) // keep commas for thousands
+        format!("{} {:},{:02}", currency, dollars, cents).replacen(',', " ", 0) // keep commas for thousands
     }
 }
 
@@ -229,23 +225,30 @@ fn tool_post_entry(
     ledger: &Arc<RwLock<LedgerStore>>,
     session: &Session,
 ) -> Result<Value> {
-    let description    = args["description"].as_str()
+    let description = args["description"]
+        .as_str()
         .ok_or_else(|| anyhow::anyhow!("'description' is required"))?;
-    let debit_account  = args["debit_account"].as_str()
+    let debit_account = args["debit_account"]
+        .as_str()
         .ok_or_else(|| anyhow::anyhow!("'debit_account' is required"))?;
-    let credit_account = args["credit_account"].as_str()
+    let credit_account = args["credit_account"]
+        .as_str()
         .ok_or_else(|| anyhow::anyhow!("'credit_account' is required"))?;
-    let amount         = args["amount"].as_i64()
+    let amount = args["amount"]
+        .as_i64()
         .ok_or_else(|| anyhow::anyhow!("'amount' is required and must be an integer"))?;
-    let currency       = args["currency"].as_str()
+    let currency = args["currency"]
+        .as_str()
         .ok_or_else(|| anyhow::anyhow!("'currency' is required"))?;
-    let domain         = args["domain"].as_str().unwrap_or("main");
-    let external_ref   = args["external_ref"].as_str().unwrap_or("");
-    let metadata       = args["metadata"].as_str().unwrap_or("");
+    let domain = args["domain"].as_str().unwrap_or("main");
+    let external_ref = args["external_ref"].as_str().unwrap_or("");
+    let metadata = args["metadata"].as_str().unwrap_or("");
 
     if amount <= 0 {
-        return Ok(err_text("'amount' must be a positive integer in minor units (e.g. cents). \
-                            $100.00 USD = 10000"));
+        return Ok(err_text(
+            "'amount' must be a positive integer in minor units (e.g. cents). \
+                            $100.00 USD = 10000",
+        ));
     }
 
     let escape = |s: &str| s.replace('\'', "''");
@@ -292,7 +295,8 @@ fn tool_get_balance(
     ledger: &Arc<RwLock<LedgerStore>>,
     session: &Session,
 ) -> Result<Value> {
-    let account = args["account"].as_str()
+    let account = args["account"]
+        .as_str()
         .ok_or_else(|| anyhow::anyhow!("'account' is required"))?;
     let sql = format!("SELECT BALANCE('{}')", account.replace('\'', "''"));
     match run_sql(&sql, ledger, session) {
@@ -349,11 +353,16 @@ fn tool_query_ledger_lines(
         conditions.push(format!("dr_cr = '{dr_cr}'"));
     }
     let sql = if conditions.is_empty() {
-        format!("SELECT date, sequence, entry_id, description, dr_cr, amount, currency, domain \
-                 FROM ledger_lines LIMIT {limit}")
+        format!(
+            "SELECT date, sequence, entry_id, description, dr_cr, amount, currency, domain \
+                 FROM ledger_lines LIMIT {limit}"
+        )
     } else {
-        format!("SELECT date, sequence, entry_id, description, dr_cr, amount, currency, domain \
-                 FROM ledger_lines WHERE {} LIMIT {limit}", conditions.join(" AND "))
+        format!(
+            "SELECT date, sequence, entry_id, description, dr_cr, amount, currency, domain \
+                 FROM ledger_lines WHERE {} LIMIT {limit}",
+            conditions.join(" AND ")
+        )
     };
     match run_sql(&sql, ledger, session) {
         Ok(result) => Ok(ok_text(result_to_text(&result))),
@@ -381,9 +390,11 @@ fn tool_merkle_root(
     ledger: &Arc<RwLock<LedgerStore>>,
     session: &Session,
 ) -> Result<Value> {
-    let from_seq = args["from_seq"].as_u64()
+    let from_seq = args["from_seq"]
+        .as_u64()
         .ok_or_else(|| anyhow::anyhow!("'from_seq' is required"))?;
-    let to_seq = args["to_seq"].as_u64()
+    let to_seq = args["to_seq"]
+        .as_u64()
         .ok_or_else(|| anyhow::anyhow!("'to_seq' is required"))?;
     let sql = format!("SELECT MERKLE_ROOT({from_seq}, {to_seq})");
     match run_sql(&sql, ledger, session) {
@@ -402,7 +413,8 @@ fn tool_explain_balance(
     ledger: &Arc<RwLock<LedgerStore>>,
     session: &Session,
 ) -> Result<Value> {
-    let account = args["account"].as_str()
+    let account = args["account"]
+        .as_str()
         .ok_or_else(|| anyhow::anyhow!("'account' is required"))?;
     let limit = args["limit"].as_u64().unwrap_or(20);
 
@@ -416,17 +428,23 @@ fn tool_explain_balance(
 
     // 2. Account metadata
     let acct_result = match run_sql(
-        &format!("SELECT id, code, name, account_type, currency, balance FROM accounts \
-                  WHERE code = '{esc}'"),
-        ledger, session,
+        &format!(
+            "SELECT id, code, name, account_type, currency, balance FROM accounts \
+                  WHERE code = '{esc}'"
+        ),
+        ledger,
+        session,
     ) {
         Ok(r) => r,
         Err(_) => {
             // Try by UUID
             match run_sql(
-                &format!("SELECT id, code, name, account_type, currency, balance FROM accounts \
-                          WHERE id = '{esc}'"),
-                ledger, session,
+                &format!(
+                    "SELECT id, code, name, account_type, currency, balance FROM accounts \
+                          WHERE id = '{esc}'"
+                ),
+                ledger,
+                session,
             ) {
                 Ok(r) => r,
                 Err(e) => return Ok(err_text(format!("Account not found: {e}"))),
@@ -439,11 +457,11 @@ fn tool_explain_balance(
         return Ok(err_text(format!("Account '{account}' not found")));
     }
     let acct = &acct_rows[0];
-    let acct_id   = acct.get(0).map(|s| s.as_str()).unwrap_or("?");
+    let acct_id = acct.first().map(|s| s.as_str()).unwrap_or("?");
     let acct_code = acct.get(1).map(|s| s.as_str()).unwrap_or("?");
     let acct_name = acct.get(2).map(|s| s.as_str()).unwrap_or("?");
     let acct_type = acct.get(3).map(|s| s.as_str()).unwrap_or("?");
-    let currency  = acct.get(4).map(|s| s.as_str()).unwrap_or("USD");
+    let currency = acct.get(4).map(|s| s.as_str()).unwrap_or("USD");
     let bal_raw: i64 = acct.get(5).and_then(|s| s.parse().ok()).unwrap_or(0);
 
     // 3. Recent debit lines
@@ -477,19 +495,31 @@ fn tool_explain_balance(
     };
 
     let mut out = String::new();
-    out.push_str(&format!("## Balance Explanation — {acct_name} ({acct_code})\n\n"));
+    out.push_str(&format!(
+        "## Balance Explanation — {acct_name} ({acct_code})\n\n"
+    ));
     out.push_str(&format!("**Account type:** {acct_type}  \n"));
     out.push_str(&format!("**Normal balance direction:** {normal_dir}  \n"));
-    out.push_str(&format!("**Current balance:** {} (minor units: {bal_raw})\n\n",
-        format_amount(bal_raw, currency)));
+    out.push_str(&format!(
+        "**Current balance:** {} (minor units: {bal_raw})\n\n",
+        format_amount(bal_raw, currency)
+    ));
 
-    out.push_str(&format!("### Recent activity (last {limit} lines per side)\n\n"));
-    out.push_str(&format!("| Side   | Transactions | Total |\n"));
-    out.push_str(&format!("|--------|-------------|-------|\n"));
-    out.push_str(&format!("| Debit  | {} | {} |\n",
-        debit_result.rows.len(), format_amount(total_debits, currency)));
-    out.push_str(&format!("| Credit | {} | {} |\n\n",
-        credit_result.rows.len(), format_amount(total_credits, currency)));
+    out.push_str(&format!(
+        "### Recent activity (last {limit} lines per side)\n\n"
+    ));
+    out.push_str("| Side   | Transactions | Total |\n");
+    out.push_str("|--------|-------------|-------|\n");
+    out.push_str(&format!(
+        "| Debit  | {} | {} |\n",
+        debit_result.rows.len(),
+        format_amount(total_debits, currency)
+    ));
+    out.push_str(&format!(
+        "| Credit | {} | {} |\n\n",
+        credit_result.rows.len(),
+        format_amount(total_credits, currency)
+    ));
 
     if !debit_result.rows.is_empty() {
         out.push_str("### Recent debits\n\n");
@@ -523,31 +553,42 @@ fn tool_reconcile_account(
     ledger: &Arc<RwLock<LedgerStore>>,
     session: &Session,
 ) -> Result<Value> {
-    let account = args["account"].as_str()
+    let account = args["account"]
+        .as_str()
         .ok_or_else(|| anyhow::anyhow!("'account' is required"))?;
     let esc = account.replace('\'', "''");
 
     // Resolve account
     let acct_result = run_sql(
-        &format!("SELECT id, code, name, account_type, currency, balance \
-                  FROM accounts WHERE code = '{esc}'"),
-        ledger, session,
-    ).or_else(|_| run_sql(
-        &format!("SELECT id, code, name, account_type, currency, balance \
-                  FROM accounts WHERE id = '{esc}'"),
-        ledger, session,
-    )).map_err(|e| anyhow::anyhow!("Account not found: {e}"))?;
+        &format!(
+            "SELECT id, code, name, account_type, currency, balance \
+                  FROM accounts WHERE code = '{esc}'"
+        ),
+        ledger,
+        session,
+    )
+    .or_else(|_| {
+        run_sql(
+            &format!(
+                "SELECT id, code, name, account_type, currency, balance \
+                  FROM accounts WHERE id = '{esc}'"
+            ),
+            ledger,
+            session,
+        )
+    })
+    .map_err(|e| anyhow::anyhow!("Account not found: {e}"))?;
 
     let rows = rows_as_strings(&acct_result);
     if rows.is_empty() {
         return Ok(err_text(format!("Account '{account}' not found")));
     }
     let r = &rows[0];
-    let acct_id   = r.get(0).map(|s| s.as_str()).unwrap_or("?");
+    let acct_id = r.first().map(|s| s.as_str()).unwrap_or("?");
     let acct_code = r.get(1).map(|s| s.as_str()).unwrap_or("?");
     let acct_name = r.get(2).map(|s| s.as_str()).unwrap_or("?");
     let acct_type = r.get(3).map(|s| s.as_str()).unwrap_or("?");
-    let currency  = r.get(4).map(|s| s.as_str()).unwrap_or("USD");
+    let currency = r.get(4).map(|s| s.as_str()).unwrap_or("USD");
     let stored_balance: i64 = r.get(5).and_then(|s| s.parse().ok()).unwrap_or(0);
 
     // Sum debits from posted lines
@@ -581,21 +622,46 @@ fn tool_reconcile_account(
     let is_ok = discrepancy == 0;
 
     let mut out = String::new();
-    out.push_str(&format!("## Reconciliation — {acct_name} ({acct_code})\n\n"));
-    out.push_str(&format!("| Field | Value |\n|---|---|\n"));
+    out.push_str(&format!(
+        "## Reconciliation — {acct_name} ({acct_code})\n\n"
+    ));
+    out.push_str("| Field | Value |\n|---|---|\n");
     out.push_str(&format!("| Account type | {acct_type} |\n"));
     out.push_str(&format!("| Currency | {currency} |\n"));
-    out.push_str(&format!("| Total debits (all lines) | {} |\n", format_amount(total_debits, currency)));
-    out.push_str(&format!("| Total credits (all lines) | {} |\n", format_amount(total_credits, currency)));
-    out.push_str(&format!("| Computed balance | {} |\n", format_amount(computed_balance, currency)));
-    out.push_str(&format!("| Stored balance | {} |\n", format_amount(stored_balance, currency)));
-    out.push_str(&format!("| Discrepancy | {} |\n", format_amount(discrepancy, currency)));
-    out.push_str(&format!("| **Result** | **{}** |\n\n",
-        if is_ok { "✓ BALANCED" } else { "✗ DISCREPANCY DETECTED" }));
+    out.push_str(&format!(
+        "| Total debits (all lines) | {} |\n",
+        format_amount(total_debits, currency)
+    ));
+    out.push_str(&format!(
+        "| Total credits (all lines) | {} |\n",
+        format_amount(total_credits, currency)
+    ));
+    out.push_str(&format!(
+        "| Computed balance | {} |\n",
+        format_amount(computed_balance, currency)
+    ));
+    out.push_str(&format!(
+        "| Stored balance | {} |\n",
+        format_amount(stored_balance, currency)
+    ));
+    out.push_str(&format!(
+        "| Discrepancy | {} |\n",
+        format_amount(discrepancy, currency)
+    ));
+    out.push_str(&format!(
+        "| **Result** | **{}** |\n\n",
+        if is_ok {
+            "✓ BALANCED"
+        } else {
+            "✗ DISCREPANCY DETECTED"
+        }
+    ));
 
     if is_ok {
-        out.push_str("The stored running balance matches the sum of all posted ledger lines. \
-                      No discrepancy found.\n");
+        out.push_str(
+            "The stored running balance matches the sum of all posted ledger lines. \
+                      No discrepancy found.\n",
+        );
     } else {
         out.push_str(&format!(
             "**WARNING:** The stored balance differs from the sum of ledger lines by {}. \
@@ -628,10 +694,10 @@ fn tool_find_policy_violations(
         .as_i64()
         .unwrap_or(5_000_000); // $50,000.00
     let pending_days = args["pending_days_threshold"].as_u64().unwrap_or(3);
-    let check_large   = args["check_large_amounts"].as_bool().unwrap_or(true);
+    let check_large = args["check_large_amounts"].as_bool().unwrap_or(true);
     let check_pending = args["check_pending_too_long"].as_bool().unwrap_or(true);
-    let check_no_ref  = args["check_missing_external_ref"].as_bool().unwrap_or(true);
-    let check_failed  = args["check_failed_entries"].as_bool().unwrap_or(true);
+    let check_no_ref = args["check_missing_external_ref"].as_bool().unwrap_or(true);
+    let check_failed = args["check_failed_entries"].as_bool().unwrap_or(true);
 
     let mut out = String::new();
     out.push_str("## Policy Violation Report\n\n");
@@ -639,10 +705,9 @@ fn tool_find_policy_violations(
 
     // 1. Large amounts
     if check_large {
-        let sql = format!(
-            "SELECT sequence, description, domain, effective_at FROM ledger \
+        let sql = "SELECT sequence, description, domain, effective_at FROM ledger \
              WHERE status = 'Posted' LIMIT 100"
-        );
+            .to_string();
         // We check via ledger_lines for amount because ledger header doesn't expose amount directly
         let lines_sql = format!(
             "SELECT sequence, entry_id, description, amount, currency, dr_cr, date \
@@ -670,10 +735,9 @@ fn tool_find_policy_violations(
 
     // 2. Pending too long
     if check_pending {
-        let sql = format!(
-            "SELECT sequence, id, description, domain, effective_at, posted_at \
+        let sql = "SELECT sequence, id, description, domain, effective_at, posted_at \
              FROM ledger WHERE status = 'Pending' LIMIT 50"
-        );
+            .to_string();
         match run_sql(&sql, ledger, session) {
             Ok(result) if !result.rows.is_empty() => {
                 violations_found += result.rows.len();
@@ -699,9 +763,11 @@ fn tool_find_policy_violations(
                 violations_found += result.rows.len();
                 out.push_str("### ⚠ Posted Entries Missing External Reference\n\n");
                 out.push_str(&result_to_text(&result));
-                out.push_str("\nThese entries have no external_ref. If your policy requires \
+                out.push_str(
+                    "\nThese entries have no external_ref. If your policy requires \
                               a payment gateway ID or external system reference on every \
-                              posted entry, these need attention.\n\n");
+                              posted entry, these need attention.\n\n",
+                );
             }
             _ => {
                 out.push_str("### ✓ External References — all posted entries have a reference\n\n");
@@ -718,8 +784,10 @@ fn tool_find_policy_violations(
                 violations_found += result.rows.len();
                 out.push_str("### ⚠ Failed Entries\n\n");
                 out.push_str(&result_to_text(&result));
-                out.push_str("\nThese entries have status = 'Failed'. Review whether \
-                              reversal or correction entries are needed.\n\n");
+                out.push_str(
+                    "\nThese entries have status = 'Failed'. Review whether \
+                              reversal or correction entries are needed.\n\n",
+                );
             }
             _ => {
                 out.push_str("### ✓ Failed Entries — none found\n\n");
@@ -727,7 +795,10 @@ fn tool_find_policy_violations(
         }
     }
 
-    out.push_str(&format!("---\n\n**Total violations found: {}**\n", violations_found));
+    out.push_str(&format!(
+        "---\n\n**Total violations found: {}**\n",
+        violations_found
+    ));
     if violations_found == 0 {
         out.push_str("\nAll configured policy checks passed. No violations detected.\n");
     }
@@ -743,9 +814,11 @@ fn tool_summarize_period(
     ledger: &Arc<RwLock<LedgerStore>>,
     session: &Session,
 ) -> Result<Value> {
-    let from = args["from"].as_str()
+    let from = args["from"]
+        .as_str()
         .ok_or_else(|| anyhow::anyhow!("'from' is required (ISO-8601 date, e.g. '2026-09-01')"))?;
-    let to = args["to"].as_str()
+    let to = args["to"]
+        .as_str()
         .ok_or_else(|| anyhow::anyhow!("'to' is required (ISO-8601 date, e.g. '2026-09-30')"))?;
     let domain = args["domain"].as_str().unwrap_or("main");
     let esc_domain = domain.replace('\'', "''");
@@ -753,31 +826,50 @@ fn tool_summarize_period(
     // Validate date inputs before interpolation — rejects any SQL metacharacter.
     validate_iso8601_timestamp(from)
         .map_err(|e| anyhow::anyhow!("'from' parameter invalid: {e}"))?;
-    validate_iso8601_timestamp(to)
-        .map_err(|e| anyhow::anyhow!("'to' parameter invalid: {e}"))?;
+    validate_iso8601_timestamp(to).map_err(|e| anyhow::anyhow!("'to' parameter invalid: {e}"))?;
 
     // Build ISO timestamps if only dates were given
-    let from_ts = if from.contains('T') { from.to_string() } else { format!("{from}T00:00:00Z") };
-    let to_ts   = if to.contains('T')   { to.to_string()   } else { format!("{to}T23:59:59Z") };
+    let from_ts = if from.contains('T') {
+        from.to_string()
+    } else {
+        format!("{from}T00:00:00Z")
+    };
+    let to_ts = if to.contains('T') {
+        to.to_string()
+    } else {
+        format!("{to}T23:59:59Z")
+    };
 
     let base_filter = format!(
         "effective_at >= '{from_ts}' AND effective_at <= '{to_ts}' AND domain = '{esc_domain}'"
     );
 
     // 1. Total posted entries
-    let count_sql = format!("SELECT COUNT(sequence) FROM ledger WHERE {base_filter} AND status = 'Posted'");
+    let count_sql =
+        format!("SELECT COUNT(sequence) FROM ledger WHERE {base_filter} AND status = 'Posted'");
     let total_posted: i64 = run_sql(&count_sql, ledger, session)
-        .ok().and_then(|r| scalar_str(&r)).and_then(|s| s.parse().ok()).unwrap_or(0);
+        .ok()
+        .and_then(|r| scalar_str(&r))
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(0);
 
     // 2. Failed entries
-    let failed_sql = format!("SELECT COUNT(sequence) FROM ledger WHERE {base_filter} AND status = 'Failed'");
+    let failed_sql =
+        format!("SELECT COUNT(sequence) FROM ledger WHERE {base_filter} AND status = 'Failed'");
     let total_failed: i64 = run_sql(&failed_sql, ledger, session)
-        .ok().and_then(|r| scalar_str(&r)).and_then(|s| s.parse().ok()).unwrap_or(0);
+        .ok()
+        .and_then(|r| scalar_str(&r))
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(0);
 
     // 3. Pending entries
-    let pending_sql = format!("SELECT COUNT(sequence) FROM ledger WHERE {base_filter} AND status = 'Pending'");
+    let pending_sql =
+        format!("SELECT COUNT(sequence) FROM ledger WHERE {base_filter} AND status = 'Pending'");
     let total_pending: i64 = run_sql(&pending_sql, ledger, session)
-        .ok().and_then(|r| scalar_str(&r)).and_then(|s| s.parse().ok()).unwrap_or(0);
+        .ok()
+        .and_then(|r| scalar_str(&r))
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(0);
 
     // 4. Total debit volume (all lines in period)
     let volume_sql = format!(
@@ -785,18 +877,24 @@ fn tool_summarize_period(
         &from_ts[..10], &to_ts[..10]
     );
     let total_volume: i64 = run_sql(&volume_sql, ledger, session)
-        .ok().and_then(|r| scalar_str(&r)).and_then(|s| s.parse().ok()).unwrap_or(0);
+        .ok()
+        .and_then(|r| scalar_str(&r))
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(0);
 
     // 5. Sequence range for this period (to compute Merkle root)
-    let seq_sql = format!(
-        "SELECT MIN(sequence), MAX(sequence) FROM ledger WHERE {base_filter}"
-    );
+    let seq_sql = format!("SELECT MIN(sequence), MAX(sequence) FROM ledger WHERE {base_filter}");
     let seq_rows = run_sql(&seq_sql, ledger, session).ok();
-    let (min_seq, max_seq) = seq_rows.as_ref()
+    let (min_seq, max_seq) = seq_rows
+        .as_ref()
         .and_then(|r| r.rows.first())
         .map(|row| {
-            let min = ledger_value_to_string(&row.values[0]).parse::<u64>().unwrap_or(0);
-            let max = ledger_value_to_string(&row.values[1]).parse::<u64>().unwrap_or(0);
+            let min = ledger_value_to_string(&row.values[0])
+                .parse::<u64>()
+                .unwrap_or(0);
+            let max = ledger_value_to_string(&row.values[1])
+                .parse::<u64>()
+                .unwrap_or(0);
             (min, max)
         })
         .unwrap_or((0, 0));
@@ -806,9 +904,11 @@ fn tool_summarize_period(
         let mr_sql = format!("SELECT MERKLE_ROOT({min_seq}, {max_seq})");
         run_sql(&mr_sql, ledger, session)
             .ok()
-            .and_then(|r| r.rows.first().map(|row| {
-                ledger_value_to_string(&row.values[3]) // merkle_root column
-            }))
+            .and_then(|r| {
+                r.rows.first().map(|row| {
+                    ledger_value_to_string(&row.values[3]) // merkle_root column
+                })
+            })
             .unwrap_or_else(|| "unavailable".to_string())
     } else {
         "no entries in period".to_string()
@@ -836,25 +936,37 @@ fn tool_summarize_period(
     out.push_str(&format!("## Period Summary — {domain} domain\n"));
     out.push_str(&format!("**Period:** {from} to {to}\n\n"));
     out.push_str("### Transaction counts\n\n");
-    out.push_str(&format!("| Status | Count |\n|---|---|\n"));
+    out.push_str("| Status | Count |\n|---|---|\n");
     out.push_str(&format!("| Posted (committed) | {total_posted} |\n"));
     out.push_str(&format!("| Pending (unsettled) | {total_pending} |\n"));
     out.push_str(&format!("| Failed | {total_failed} |\n"));
     out.push_str(&format!("| Success rate | {success_rate}% |\n\n"));
 
     out.push_str("### Volume\n\n");
-    out.push_str(&format!("Total debit volume: {} minor units\n\n", total_volume));
+    out.push_str(&format!(
+        "Total debit volume: {} minor units\n\n",
+        total_volume
+    ));
 
     out.push_str("### Sequence range\n\n");
-    out.push_str(&format!("| Metric | Value |\n|---|---|\n"));
+    out.push_str("| Metric | Value |\n|---|---|\n");
     out.push_str(&format!("| First sequence | {min_seq} |\n"));
     out.push_str(&format!("| Last sequence | {max_seq} |\n"));
-    out.push_str(&format!("| Entry count | {} |\n\n", max_seq.saturating_sub(min_seq) + 1));
+    out.push_str(&format!(
+        "| Entry count | {} |\n\n",
+        max_seq.saturating_sub(min_seq) + 1
+    ));
 
     out.push_str("### Cryptographic integrity\n\n");
-    out.push_str(&format!("| Check | Result |\n|---|---|\n"));
-    out.push_str(&format!("| Hash chain | {} |\n",
-        if chain_ok { "✓ VERIFIED" } else { "✗ CHAIN BROKEN — INVESTIGATE IMMEDIATELY" }));
+    out.push_str("| Check | Result |\n|---|---|\n");
+    out.push_str(&format!(
+        "| Hash chain | {} |\n",
+        if chain_ok {
+            "✓ VERIFIED"
+        } else {
+            "✗ CHAIN BROKEN — INVESTIGATE IMMEDIATELY"
+        }
+    ));
     out.push_str(&format!("| Merkle root | `{}` |\n\n", merkle_info));
 
     out.push_str("### Summary\n\n");
@@ -867,7 +979,11 @@ fn tool_summarize_period(
         total_volume,
         total_failed,
         total_pending,
-        if chain_ok { "intact" } else { "BROKEN — requires immediate investigation" },
+        if chain_ok {
+            "intact"
+        } else {
+            "BROKEN — requires immediate investigation"
+        },
         merkle_info,
     ));
 
@@ -883,9 +999,11 @@ fn tool_audit_report(
     ledger: &Arc<RwLock<LedgerStore>>,
     session: &Session,
 ) -> Result<Value> {
-    let from = args["from"].as_str()
+    let from = args["from"]
+        .as_str()
         .ok_or_else(|| anyhow::anyhow!("'from' is required (e.g. '2026-09-01')"))?;
-    let to = args["to"].as_str()
+    let to = args["to"]
+        .as_str()
         .ok_or_else(|| anyhow::anyhow!("'to' is required (e.g. '2026-09-30')"))?;
     let tenant = args["tenant"].as_str().unwrap_or("VectorLedger Customer");
     let domain = args["domain"].as_str().unwrap_or("main");
@@ -894,11 +1012,18 @@ fn tool_audit_report(
     // Validate date inputs before interpolation — rejects any SQL metacharacter.
     validate_iso8601_timestamp(from)
         .map_err(|e| anyhow::anyhow!("'from' parameter invalid: {e}"))?;
-    validate_iso8601_timestamp(to)
-        .map_err(|e| anyhow::anyhow!("'to' parameter invalid: {e}"))?;
+    validate_iso8601_timestamp(to).map_err(|e| anyhow::anyhow!("'to' parameter invalid: {e}"))?;
 
-    let from_ts = if from.contains('T') { from.to_string() } else { format!("{from}T00:00:00Z") };
-    let to_ts   = if to.contains('T')   { to.to_string()   } else { format!("{to}T23:59:59Z") };
+    let from_ts = if from.contains('T') {
+        from.to_string()
+    } else {
+        format!("{from}T00:00:00Z")
+    };
+    let to_ts = if to.contains('T') {
+        to.to_string()
+    } else {
+        format!("{to}T23:59:59Z")
+    };
     let base_filter = format!(
         "effective_at >= '{from_ts}' AND effective_at <= '{to_ts}' AND domain = '{esc_domain}'"
     );
@@ -906,16 +1031,27 @@ fn tool_audit_report(
     // Entry count
     let count_sql = format!("SELECT COUNT(sequence) FROM ledger WHERE {base_filter}");
     let entry_count: i64 = run_sql(&count_sql, ledger, session)
-        .ok().and_then(|r| scalar_str(&r)).and_then(|s| s.parse().ok()).unwrap_or(0);
+        .ok()
+        .and_then(|r| scalar_str(&r))
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(0);
 
     // Sequence range
     let seq_sql = format!("SELECT MIN(sequence), MAX(sequence) FROM ledger WHERE {base_filter}");
     let (min_seq, max_seq) = run_sql(&seq_sql, ledger, session)
         .ok()
-        .and_then(|r| r.rows.first().map(|row| (
-            ledger_value_to_string(&row.values[0]).parse::<u64>().unwrap_or(0),
-            ledger_value_to_string(&row.values[1]).parse::<u64>().unwrap_or(0),
-        )))
+        .and_then(|r| {
+            r.rows.first().map(|row| {
+                (
+                    ledger_value_to_string(&row.values[0])
+                        .parse::<u64>()
+                        .unwrap_or(0),
+                    ledger_value_to_string(&row.values[1])
+                        .parse::<u64>()
+                        .unwrap_or(0),
+                )
+            })
+        })
         .unwrap_or((0, 0));
 
     // Chain verification
@@ -938,7 +1074,11 @@ fn tool_audit_report(
         let mr_sql = format!("SELECT MERKLE_ROOT({min_seq}, {max_seq})");
         run_sql(&mr_sql, ledger, session)
             .ok()
-            .and_then(|r| r.rows.first().map(|row| ledger_value_to_string(&row.values[3])))
+            .and_then(|r| {
+                r.rows
+                    .first()
+                    .map(|row| ledger_value_to_string(&row.values[3]))
+            })
             .unwrap_or_else(|| "unavailable".to_string())
     } else {
         "no entries".to_string()
@@ -960,37 +1100,51 @@ fn tool_audit_report(
         .unwrap_or(false);
 
     let mut out = String::new();
-    out.push_str(&format!("# Cryptographic Audit Report\n\n"));
+    out.push_str("# Cryptographic Audit Report\n\n");
     out.push_str(&format!("**Tenant:** {tenant}  \n"));
     out.push_str(&format!("**Audit period:** {from} to {to}  \n"));
     out.push_str(&format!("**Domain:** {domain}  \n"));
-    out.push_str(&format!("**Generated by:** VectorLedger v{}  \n\n",
-        env!("CARGO_PKG_VERSION")));
+    out.push_str(&format!(
+        "**Generated by:** VectorLedger v{}  \n\n",
+        env!("CARGO_PKG_VERSION")
+    ));
 
     out.push_str("---\n\n## 1. Ledger Summary\n\n");
-    out.push_str(&format!("| Field | Value |\n|---|---|\n"));
+    out.push_str("| Field | Value |\n|---|---|\n");
     out.push_str(&format!("| Total entries in period | {entry_count} |\n"));
     out.push_str(&format!("| First sequence | {min_seq} |\n"));
     out.push_str(&format!("| Last sequence | {max_seq} |\n"));
-    out.push_str(&format!("| Full ledger chain integrity | {} |\n\n",
-        if full_chain_ok { "✓ VERIFIED" } else { "✗ BROKEN" }));
+    out.push_str(&format!(
+        "| Full ledger chain integrity | {} |\n\n",
+        if full_chain_ok {
+            "✓ VERIFIED"
+        } else {
+            "✗ BROKEN"
+        }
+    ));
 
     out.push_str("## 2. Period Hash Chain Verification\n\n");
-    out.push_str(&format!("Chain status for sequences {min_seq}–{max_seq}: **{chain_status}**\n\n"));
+    out.push_str(&format!(
+        "Chain status for sequences {min_seq}–{max_seq}: **{chain_status}**\n\n"
+    ));
     out.push_str(&chain_detail);
     out.push('\n');
 
     out.push_str("## 3. Merkle Commitment\n\n");
-    out.push_str("The BLAKE3 Merkle root below is a cryptographic commitment over the \
+    out.push_str(
+        "The BLAKE3 Merkle root below is a cryptographic commitment over the \
                   `content_hash` of every entry in this period. Any third party can \
                   independently verify that a specific entry belongs to this commitment \
-                  using `vledger audit-proof`.\n\n");
+                  using `vledger audit-proof`.\n\n",
+    );
     out.push_str(&format!("```\nMerkle root: {merkle_root}\nSequences:   {min_seq} – {max_seq}\nEntries:     {entry_count}\n```\n\n"));
 
     out.push_str("## 4. Sample Entries\n\n");
-    out.push_str("The following entries are a sample from the audit period. Each \
+    out.push_str(
+        "The following entries are a sample from the audit period. Each \
                   `content_hash` independently fingerprints its entry. Any modification \
-                  to any field would produce a different hash and break the chain.\n\n");
+                  to any field would produce a different hash and break the chain.\n\n",
+    );
     out.push_str(&result_to_text(&sample_result));
 
     out.push_str("\n## 5. Verification Instructions\n\n");
@@ -999,19 +1153,23 @@ fn tool_audit_report(
     out.push_str("# Verify the full hash chain\n");
     out.push_str("vledger sql --ask \"verify the chain integrity\"\n\n");
     out.push_str("# Generate a portable audit package (no database access needed by auditor)\n");
-    out.push_str(&format!("vledger audit-package \\\n  --data-dir ./vledger-data \\\n  \
+    out.push_str(&format!(
+        "vledger audit-package \\\n  --data-dir ./vledger-data \\\n  \
                            --tenant \"{tenant}\" \\\n  --period-start {from} \\\n  \
-                           --period-end {to} \\\n  --output audit-{from}-{to}.json\n\n"));
+                           --period-end {to} \\\n  --output audit-{from}-{to}.json\n\n"
+    ));
     out.push_str("# Verify the package (auditor runs this — no database required)\n");
     out.push_str("vledger verify-audit-package --file audit-package.json\n");
     out.push_str("```\n\n");
 
     out.push_str("---\n\n");
-    out.push_str("*This report was generated by VectorLedger's cryptographic audit engine. \
+    out.push_str(
+        "*This report was generated by VectorLedger's cryptographic audit engine. \
                   The Merkle root and chain verification results are derived from \
                   tamper-evident BLAKE3 hash chains and cannot be retrospectively altered \
                   without invalidating the chain. This report is a technical input to an \
-                  audit — it does not by itself constitute regulatory compliance.*\n");
+                  audit — it does not by itself constitute regulatory compliance.*\n",
+    );
 
     Ok(ok_text(out))
 }
@@ -1045,43 +1203,54 @@ fn tool_resolve_account(
 
     // Try exact code match
     let by_code = run_sql(
-        &format!("SELECT id, code, name, account_type, currency, domain, balance \
-                  FROM accounts WHERE code = '{esc}'"),
-        ledger, session,
+        &format!(
+            "SELECT id, code, name, account_type, currency, domain, balance \
+                  FROM accounts WHERE code = '{esc}'"
+        ),
+        ledger,
+        session,
     );
 
     // Try exact name match
     let by_name = run_sql(
-        &format!("SELECT id, code, name, account_type, currency, domain, balance \
-                  FROM accounts WHERE name = '{esc}'"),
-        ledger, session,
+        &format!(
+            "SELECT id, code, name, account_type, currency, domain, balance \
+                  FROM accounts WHERE name = '{esc}'"
+        ),
+        ledger,
+        session,
     );
 
     // Try UUID match
     let by_uuid = run_sql(
-        &format!("SELECT id, code, name, account_type, currency, domain, balance \
-                  FROM accounts WHERE id = '{esc}'"),
-        ledger, session,
+        &format!(
+            "SELECT id, code, name, account_type, currency, domain, balance \
+                  FROM accounts WHERE id = '{esc}'"
+        ),
+        ledger,
+        session,
     );
 
     // Try metadata search in ledger for entries mentioning this name
     let by_metadata = run_sql(
-        &format!("SELECT sequence, description, metadata FROM ledger \
-                  WHERE metadata LIKE '%{}%' ESCAPE '\\' LIMIT 5", escape_like(query)),
-        ledger, session,
+        &format!(
+            "SELECT sequence, description, metadata FROM ledger \
+                  WHERE metadata LIKE '%{}%' ESCAPE '\\' LIMIT 5",
+            escape_like(query)
+        ),
+        ledger,
+        session,
     );
 
     // Collect all direct account matches
     let mut matches: Vec<Vec<String>> = Vec::new();
 
-    for result in [by_code, by_name, by_uuid] {
-        if let Ok(r) = result {
-            for row in &r.rows {
-                let vals: Vec<String> = row.values.iter().map(|v| ledger_value_to_string(v)).collect();
-                // Deduplicate by account id (first column)
-                if !matches.iter().any(|m| m.first() == vals.first()) {
-                    matches.push(vals);
-                }
+    for r in [by_code, by_name, by_uuid].into_iter().flatten() {
+        for row in &r.rows {
+            let vals: Vec<String> = row.values.iter().map(ledger_value_to_string).collect();
+            // Deduplicate by account id (first column)
+            if !matches.iter().any(|m| m.first() == vals.first()) {
+                matches.push(vals);
             }
         }
     }
@@ -1090,7 +1259,8 @@ fn tool_resolve_account(
 
     if matches.is_empty() {
         // No direct account match — check if they appear in transaction metadata
-        let metadata_rows = by_metadata.ok()
+        let metadata_rows = by_metadata
+            .ok()
             .map(|r| rows_as_strings(&r))
             .unwrap_or_default();
 
@@ -1100,28 +1270,38 @@ fn tool_resolve_account(
         ));
 
         if !metadata_rows.is_empty() {
-            out.push_str("This name appears in transaction metadata (as sender/receiver), \
+            out.push_str(
+                "This name appears in transaction metadata (as sender/receiver), \
                           but VectorLedger accounts use numeric codes — the person's name \
-                          in metadata does not identify their account.\n\n");
+                          in metadata does not identify their account.\n\n",
+            );
             out.push_str("**Recent transactions mentioning this name:**\n\n");
             for row in &metadata_rows {
-                let seq  = row.get(0).map(|s| s.as_str()).unwrap_or("?");
+                let seq = row.first().map(|s| s.as_str()).unwrap_or("?");
                 let desc = row.get(1).map(|s| s.as_str()).unwrap_or("?");
                 out.push_str(&format!("- Sequence {seq}: {desc}\n"));
             }
             out.push('\n');
-            out.push_str("To find the actual account, look up the ledger_lines for one \
+            out.push_str(
+                "To find the actual account, look up the ledger_lines for one \
                           of these entries and identify the account UUID from the \
                           `account_id` column. Then use that UUID as the debit or credit \
-                          account in `post_entry`.\n\n");
+                          account in `post_entry`.\n\n",
+            );
         }
 
         out.push_str("**⛔ STOP — do not post this entry.**\n\n");
         out.push_str("The correct action is to:\n");
-        out.push_str("1. Ask the user to provide the exact account code or UUID for each party, OR\n");
-        out.push_str("2. Ask the user to look up the account in their system of record and provide it, OR\n");
-        out.push_str("3. Use `query_ledger` with `SELECT * FROM ledger_lines WHERE account_id = '<uuid>'` \
-                      to confirm an account belongs to the correct person before using it.\n\n");
+        out.push_str(
+            "1. Ask the user to provide the exact account code or UUID for each party, OR\n",
+        );
+        out.push_str(
+            "2. Ask the user to look up the account in their system of record and provide it, OR\n",
+        );
+        out.push_str(
+            "3. Use `query_ledger` with `SELECT * FROM ledger_lines WHERE account_id = '<uuid>'` \
+                      to confirm an account belongs to the correct person before using it.\n\n",
+        );
         out.push_str("Never assign a random or unverified account to a named individual.\n");
 
         return Ok(err_text(out));
@@ -1129,12 +1309,12 @@ fn tool_resolve_account(
 
     if matches.len() == 1 {
         let r = &matches[0];
-        let acct_id   = r.get(0).map(|s| s.as_str()).unwrap_or("?");
+        let acct_id = r.first().map(|s| s.as_str()).unwrap_or("?");
         let acct_code = r.get(1).map(|s| s.as_str()).unwrap_or("?");
         let acct_name = r.get(2).map(|s| s.as_str()).unwrap_or("?");
         let acct_type = r.get(3).map(|s| s.as_str()).unwrap_or("?");
-        let currency  = r.get(4).map(|s| s.as_str()).unwrap_or("?");
-        let domain    = r.get(5).map(|s| s.as_str()).unwrap_or("?");
+        let currency = r.get(4).map(|s| s.as_str()).unwrap_or("?");
+        let domain = r.get(5).map(|s| s.as_str()).unwrap_or("?");
         let balance: i64 = r.get(6).and_then(|s| s.parse().ok()).unwrap_or(0);
 
         out.push_str("### ✓ FOUND — single match\n\n");
@@ -1146,21 +1326,30 @@ fn tool_resolve_account(
         out.push_str(&format!("| Currency | {currency} |\n"));
         out.push_str(&format!("| Domain | {domain} |\n"));
         out.push_str(&format!("| Balance | {} minor units |\n\n", balance));
-        out.push_str("✓ This account can be used in `post_entry` as `debit_account` or \
-                      `credit_account` using the Account ID above.\n\n");
-        out.push_str("**Before posting, confirm with the user** that this is the correct \
-                      account for the intended party.\n");
+        out.push_str(
+            "✓ This account can be used in `post_entry` as `debit_account` or \
+                      `credit_account` using the Account ID above.\n\n",
+        );
+        out.push_str(
+            "**Before posting, confirm with the user** that this is the correct \
+                      account for the intended party.\n",
+        );
 
         return Ok(ok_text(out));
     }
 
     // Multiple matches — must disambiguate
-    out.push_str(&format!("### ⚠ MULTIPLE MATCHES ({} accounts found)\n\n", matches.len()));
-    out.push_str("| Account ID | Code | Name | Type | Currency | Balance |\n|---|---|---|---|---|---|\n");
+    out.push_str(&format!(
+        "### ⚠ MULTIPLE MATCHES ({} accounts found)\n\n",
+        matches.len()
+    ));
+    out.push_str(
+        "| Account ID | Code | Name | Type | Currency | Balance |\n|---|---|---|---|---|---|\n",
+    );
     for r in &matches {
         out.push_str(&format!(
             "| `{}` | {} | {} | {} | {} | {} |\n",
-            r.get(0).map(|s| s.as_str()).unwrap_or("?"),
+            r.first().map(|s| s.as_str()).unwrap_or("?"),
             r.get(1).map(|s| s.as_str()).unwrap_or("?"),
             r.get(2).map(|s| s.as_str()).unwrap_or("?"),
             r.get(3).map(|s| s.as_str()).unwrap_or("?"),
@@ -1170,8 +1359,10 @@ fn tool_resolve_account(
     }
     out.push('\n');
     out.push_str("**⛔ STOP — do not post this entry.**\n\n");
-    out.push_str("Multiple accounts match this query. Ask the user to specify \
-                  which account ID to use before proceeding.\n");
+    out.push_str(
+        "Multiple accounts match this query. Ask the user to specify \
+                  which account ID to use before proceeding.\n",
+    );
 
     Ok(err_text(out))
 }
@@ -1192,14 +1383,16 @@ fn tool_propose_correction(
     let sequence = args["sequence"]
         .as_u64()
         .ok_or_else(|| anyhow::anyhow!("'sequence' is required"))?;
-    let correct_amount_minor = args["correct_amount_minor_units"]
-        .as_i64()
-        .ok_or_else(|| anyhow::anyhow!(
+    let correct_amount_minor = args["correct_amount_minor_units"].as_i64().ok_or_else(|| {
+        anyhow::anyhow!(
             "'correct_amount_minor_units' is required (integer minor units, e.g. 40192 for $401.92)"
-        ))?;
+        )
+    })?;
 
     if correct_amount_minor <= 0 {
-        return Ok(err_text("'correct_amount_minor_units' must be a positive integer"));
+        return Ok(err_text(
+            "'correct_amount_minor_units' must be a positive integer",
+        ));
     }
 
     // Look up the original entry header
@@ -1210,7 +1403,11 @@ fn tool_propose_correction(
     );
     let entry_result = match run_sql(&entry_sql, ledger, session) {
         Ok(r) => r,
-        Err(e) => return Ok(err_text(format!("Could not look up entry #{sequence}: {e}"))),
+        Err(e) => {
+            return Ok(err_text(format!(
+                "Could not look up entry #{sequence}: {e}"
+            )))
+        }
     };
 
     if entry_result.rows.is_empty() {
@@ -1218,14 +1415,18 @@ fn tool_propose_correction(
     }
 
     let entry_row = &entry_result.rows[0];
-    let vals: Vec<String> = entry_row.values.iter().map(|v| ledger_value_to_string(v)).collect();
+    let vals: Vec<String> = entry_row
+        .values
+        .iter()
+        .map(ledger_value_to_string)
+        .collect();
 
-    let entry_id     = vals.get(1).cloned().unwrap_or_default();
-    let status       = vals.get(2).cloned().unwrap_or_default();
-    let description  = vals.get(3).cloned().unwrap_or_default();
-    let domain       = vals.get(4).cloned().unwrap_or_default();
+    let entry_id = vals.get(1).cloned().unwrap_or_default();
+    let status = vals.get(2).cloned().unwrap_or_default();
+    let description = vals.get(3).cloned().unwrap_or_default();
+    let domain = vals.get(4).cloned().unwrap_or_default();
     let content_hash = vals.get(7).cloned().unwrap_or_default();
-    let chain_hash   = vals.get(8).cloned().unwrap_or_default();
+    let chain_hash = vals.get(8).cloned().unwrap_or_default();
 
     // Only Posted entries can be reversed
     if status != "Posted" {
@@ -1242,36 +1443,53 @@ fn tool_propose_correction(
     );
     let lines_result = match run_sql(&lines_sql, ledger, session) {
         Ok(r) => r,
-        Err(e) => return Ok(err_text(format!("Could not look up lines for #{sequence}: {e}"))),
+        Err(e) => {
+            return Ok(err_text(format!(
+                "Could not look up lines for #{sequence}: {e}"
+            )))
+        }
     };
 
     if lines_result.rows.len() < 2 {
-        return Ok(err_text(format!("Entry #{sequence} does not have the expected 2 journal lines")));
+        return Ok(err_text(format!(
+            "Entry #{sequence} does not have the expected 2 journal lines"
+        )));
     }
 
-    let line_vals: Vec<Vec<String>> = lines_result.rows.iter()
-        .map(|r| r.values.iter().map(|v| ledger_value_to_string(v)).collect())
+    let line_vals: Vec<Vec<String>> = lines_result
+        .rows
+        .iter()
+        .map(|r| r.values.iter().map(ledger_value_to_string).collect())
         .collect();
 
     // Find debit and credit lines
-    let debit_line  = line_vals.iter().find(|r| r.get(1).map(|s| s == "Debit").unwrap_or(false));
-    let credit_line = line_vals.iter().find(|r| r.get(1).map(|s| s == "Credit").unwrap_or(false));
+    let debit_line = line_vals
+        .iter()
+        .find(|r| r.get(1).map(|s| s == "Debit").unwrap_or(false));
+    let credit_line = line_vals
+        .iter()
+        .find(|r| r.get(1).map(|s| s == "Credit").unwrap_or(false));
 
-    let (debit_account_id, credit_account_id, original_amount_minor, currency) = match (debit_line, credit_line) {
-        (Some(d), Some(c)) => {
-            let amt: i64 = d.get(2).and_then(|s| s.parse().ok()).unwrap_or(0);
-            let cur = d.get(3).cloned().unwrap_or_else(|| "USD".to_string());
-            (d[0].clone(), c[0].clone(), amt, cur)
-        }
-        _ => return Ok(err_text(format!("Could not determine debit/credit accounts for #{sequence}"))),
-    };
+    let (debit_account_id, credit_account_id, original_amount_minor, currency) =
+        match (debit_line, credit_line) {
+            (Some(d), Some(c)) => {
+                let amt: i64 = d.get(2).and_then(|s| s.parse().ok()).unwrap_or(0);
+                let cur = d.get(3).cloned().unwrap_or_else(|| "USD".to_string());
+                (d[0].clone(), c[0].clone(), amt, cur)
+            }
+            _ => {
+                return Ok(err_text(format!(
+                    "Could not determine debit/credit accounts for #{sequence}"
+                )))
+            }
+        };
 
     // Format amounts for display
     let fmt_amt = |minor: i64| format_amount(minor, &currency);
 
-    let original_display  = fmt_amt(original_amount_minor);
-    let correct_display   = fmt_amt(correct_amount_minor);
-    let adjustment        = correct_amount_minor - original_amount_minor;
+    let original_display = fmt_amt(original_amount_minor);
+    let correct_display = fmt_amt(correct_amount_minor);
+    let adjustment = correct_amount_minor - original_amount_minor;
     let adjustment_display = if adjustment >= 0 {
         format!("+{}", fmt_amt(adjustment))
     } else {
@@ -1293,19 +1511,39 @@ fn tool_propose_correction(
     out.push_str(&format!(
         "**1. Reverse entry #{sequence}** *(flip debit and credit)*  \n"
     ));
-    out.push_str(&format!("   Debit:  `{credit_account_id}` — {}  \n", original_display));
-    out.push_str(&format!("   Credit: `{debit_account_id}` — {}  \n\n", original_display));
+    out.push_str(&format!(
+        "   Debit:  `{credit_account_id}` — {}  \n",
+        original_display
+    ));
+    out.push_str(&format!(
+        "   Credit: `{debit_account_id}` — {}  \n\n",
+        original_display
+    ));
 
     out.push_str("**2. Post correction** *(restore correct amount)*  \n");
-    out.push_str(&format!("   Debit:  `{debit_account_id}` — {}  \n", correct_display));
-    out.push_str(&format!("   Credit: `{credit_account_id}` — {}  \n\n", correct_display));
+    out.push_str(&format!(
+        "   Debit:  `{debit_account_id}` — {}  \n",
+        correct_display
+    ));
+    out.push_str(&format!(
+        "   Credit: `{credit_account_id}` — {}  \n\n",
+        correct_display
+    ));
 
     out.push_str("────────────────────────────────────────────\n\n");
     out.push_str("### What will be preserved\n\n");
-    out.push_str(&format!("| Field | Value |\n|---|---|\n"));
-    out.push_str(&format!("| Historical entry | ✓ PRESERVED — entry #{sequence} is never modified |\n"));
-    out.push_str(&format!("| Original content_hash | ✓ PRESERVED — `{}` |\n", &content_hash[..16]));
-    out.push_str(&format!("| Original chain_hash | ✓ PRESERVED — `{}` |\n", &chain_hash[..16]));
+    out.push_str("| Field | Value |\n|---|---|\n");
+    out.push_str(&format!(
+        "| Historical entry | ✓ PRESERVED — entry #{sequence} is never modified |\n"
+    ));
+    out.push_str(&format!(
+        "| Original content_hash | ✓ PRESERVED — `{}` |\n",
+        &content_hash[..16]
+    ));
+    out.push_str(&format!(
+        "| Original chain_hash | ✓ PRESERVED — `{}` |\n",
+        &chain_hash[..16]
+    ));
     out.push_str("| New entries | Will be APPENDED as new sequences |\n");
     out.push_str("| Double-entry balance | ✓ Both new entries will balance |\n");
     out.push_str("| Hash chain | ✓ Extended with reversal and correction |\n\n");
@@ -1314,13 +1552,21 @@ fn tool_propose_correction(
     out.push_str("### ⚠ Awaiting confirmation\n\n");
     out.push_str("**Ask the user:** *\"Shall I proceed with this correction?\"*\n\n");
     out.push_str("If confirmed, call `execute_correction` with:\n");
-    out.push_str(&format!("```json\n{{\n"));
+    out.push_str("```json\n{\n");
     out.push_str(&format!("  \"sequence\": {sequence},\n"));
-    out.push_str(&format!("  \"correct_amount_minor_units\": {correct_amount_minor},\n"));
+    out.push_str(&format!(
+        "  \"correct_amount_minor_units\": {correct_amount_minor},\n"
+    ));
     out.push_str(&format!("  \"original_description\": \"{description}\",\n"));
-    out.push_str(&format!("  \"debit_account_id\": \"{debit_account_id}\",\n"));
-    out.push_str(&format!("  \"credit_account_id\": \"{credit_account_id}\",\n"));
-    out.push_str(&format!("  \"original_amount_minor_units\": {original_amount_minor},\n"));
+    out.push_str(&format!(
+        "  \"debit_account_id\": \"{debit_account_id}\",\n"
+    ));
+    out.push_str(&format!(
+        "  \"credit_account_id\": \"{credit_account_id}\",\n"
+    ));
+    out.push_str(&format!(
+        "  \"original_amount_minor_units\": {original_amount_minor},\n"
+    ));
     out.push_str(&format!("  \"currency\": \"{currency}\",\n"));
     out.push_str(&format!("  \"domain\": \"{domain}\",\n"));
     out.push_str(&format!("  \"original_entry_id\": \"{entry_id}\"\n"));
@@ -1340,22 +1586,29 @@ fn tool_execute_correction(
     ledger: &Arc<RwLock<LedgerStore>>,
     session: &Session,
 ) -> Result<Value> {
-    let sequence               = args["sequence"].as_u64()
+    let sequence = args["sequence"]
+        .as_u64()
         .ok_or_else(|| anyhow::anyhow!("'sequence' is required"))?;
-    let correct_amount         = args["correct_amount_minor_units"].as_i64()
+    let correct_amount = args["correct_amount_minor_units"]
+        .as_i64()
         .ok_or_else(|| anyhow::anyhow!("'correct_amount_minor_units' is required"))?;
-    let original_amount        = args["original_amount_minor_units"].as_i64()
+    let original_amount = args["original_amount_minor_units"]
+        .as_i64()
         .ok_or_else(|| anyhow::anyhow!("'original_amount_minor_units' is required"))?;
-    let debit_account_id       = args["debit_account_id"].as_str()
+    let debit_account_id = args["debit_account_id"]
+        .as_str()
         .ok_or_else(|| anyhow::anyhow!("'debit_account_id' is required"))?;
-    let credit_account_id      = args["credit_account_id"].as_str()
+    let credit_account_id = args["credit_account_id"]
+        .as_str()
         .ok_or_else(|| anyhow::anyhow!("'credit_account_id' is required"))?;
-    let original_description   = args["original_description"].as_str()
+    let original_description = args["original_description"]
+        .as_str()
         .ok_or_else(|| anyhow::anyhow!("'original_description' is required"))?;
-    let original_entry_id      = args["original_entry_id"].as_str()
+    let original_entry_id = args["original_entry_id"]
+        .as_str()
         .ok_or_else(|| anyhow::anyhow!("'original_entry_id' is required"))?;
-    let currency               = args["currency"].as_str().unwrap_or("USD");
-    let domain                 = args["domain"].as_str().unwrap_or("main");
+    let currency = args["currency"].as_str().unwrap_or("USD");
+    let domain = args["domain"].as_str().unwrap_or("main");
 
     let escape = |s: &str| s.replace('\'', "''");
     let fmt = |m: i64| format_amount(m, currency);
@@ -1368,7 +1621,7 @@ fn tool_execute_correction(
     // WHERE external_ref = '...', which IS a supported SQL filter) and for the
     // idempotency_key column (which deduplicates at the LedgerStore level on
     // any subsequent direct post_entry call).
-    let reversal_idem_key   = format!("reversal-of-{original_entry_id}");
+    let reversal_idem_key = format!("reversal-of-{original_entry_id}");
     let correction_idem_key = format!("correction-of-{original_entry_id}");
 
     // ── Pre-flight: detect prior (partial) execution ──────────────────────────
@@ -1387,8 +1640,8 @@ fn tool_execute_correction(
     //                         confirmation without any new writes.
     //   (c) Only reversal   → agent crashed between the two INSERTs; skip the
     //                         reversal INSERT and post only the correction.
-    let reversal_ext_ref    = &reversal_idem_key;
-    let correction_ext_ref  = &correction_idem_key;
+    let reversal_ext_ref = &reversal_idem_key;
+    let correction_ext_ref = &correction_idem_key;
 
     let reversal_exists_sql = format!(
         "SELECT sequence FROM ledger WHERE external_ref = '{}' LIMIT 1",
@@ -1405,8 +1658,8 @@ fn tool_execute_correction(
         .and_then(|row| row.values.into_iter().next())
         .and_then(|v| match v {
             vledger_sql::result::Value::BigInt(i) => Some(i as u64),
-            vledger_sql::result::Value::Int(i)    => Some(i as u64),
-            _                                      => None,
+            vledger_sql::result::Value::Int(i) => Some(i as u64),
+            _ => None,
         });
 
     let existing_correction_seq: Option<u64> = run_sql(&correction_exists_sql, ledger, session)
@@ -1415,8 +1668,8 @@ fn tool_execute_correction(
         .and_then(|row| row.values.into_iter().next())
         .and_then(|v| match v {
             vledger_sql::result::Value::BigInt(i) => Some(i as u64),
-            vledger_sql::result::Value::Int(i)    => Some(i as u64),
-            _                                      => None,
+            vledger_sql::result::Value::Int(i) => Some(i as u64),
+            _ => None,
         });
 
     // Both entries were already posted on a prior run — return confirmation
@@ -1432,24 +1685,32 @@ fn tool_execute_correction(
         out.push_str("────────────────────────────────────────────\n\n");
         out.push_str("This correction was already posted on a prior run. ");
         out.push_str("No new entries have been written.\n\n");
-        out.push_str(&format!("✓ **Reversal** (existing)  \n"));
+        out.push_str("✓ **Reversal** (existing)  \n");
         out.push_str(&format!("  Sequence: {rev_seq}  \n"));
-        out.push_str(&format!("  Amount:   {} (original amount reversed)  \n\n", fmt(original_amount)));
-        out.push_str(&format!("✓ **Correction** (existing)  \n"));
+        out.push_str(&format!(
+            "  Amount:   {} (original amount reversed)  \n\n",
+            fmt(original_amount)
+        ));
+        out.push_str("✓ **Correction** (existing)  \n");
         out.push_str(&format!("  Sequence: {cor_seq}  \n"));
-        out.push_str(&format!("  Amount:   {} (correct amount)  \n\n", fmt(correct_amount)));
+        out.push_str(&format!(
+            "  Amount:   {} (correct amount)  \n\n",
+            fmt(correct_amount)
+        ));
         out.push_str("────────────────────────────────────────────\n\n");
-        out.push_str(&format!("| Hash chain | {} |\n",
-            if chain_ok { "✓ Verified" } else { "⚠ Verify manually with VERIFY_CHAIN()" }
+        out.push_str(&format!(
+            "| Hash chain | {} |\n",
+            if chain_ok {
+                "✓ Verified"
+            } else {
+                "⚠ Verify manually with VERIFY_CHAIN()"
+            }
         ));
         return Ok(ok_text(out));
     }
 
     // ── Post the reversal (skip if already posted from a prior partial run) ───
-    let reversal_desc = format!(
-        "Reversal of #{sequence} — {}",
-        escape(original_description)
-    );
+    let reversal_desc = format!("Reversal of #{sequence} — {}", escape(original_description));
     let reversal_meta = format!(
         "{{\"reverses\":\"{original_entry_id}\",\"reason\":\"amount_correction\",\
          \"original_amount\":{original_amount},\"correct_amount\":{correct_amount}}}"
@@ -1475,8 +1736,8 @@ fn tool_execute_correction(
               external_ref, idempotency_key, metadata) \
              VALUES ('{}', '{}', '{}', {}, '{}', '{}', 'reversal-of-{}', '{}', '{}')",
             escape(&reversal_desc),
-            escape(credit_account_id),   // flip: original credit becomes debit
-            escape(debit_account_id),    // flip: original debit becomes credit
+            escape(credit_account_id), // flip: original credit becomes debit
+            escape(debit_account_id),  // flip: original debit becomes credit
             original_amount,
             escape(currency),
             escape(domain),
@@ -1490,7 +1751,9 @@ fn tool_execute_correction(
             Err(e) => return Ok(err_text(format!("Failed to post reversal: {e}"))),
         };
 
-        let id = result.entry_id.map(|u| u.to_string())
+        let id = result
+            .entry_id
+            .map(|u| u.to_string())
             .unwrap_or_else(|| "?".to_string());
         (result.entry_sequence, id)
     };
@@ -1522,15 +1785,19 @@ fn tool_execute_correction(
 
     let correction_result = match run_sql(&correction_sql, ledger, session) {
         Ok(r) => r,
-        Err(e) => return Ok(err_text(format!(
-            "Reversal was posted (sequence {:?}) but correction FAILED: {e}\n\
+        Err(e) => {
+            return Ok(err_text(format!(
+                "Reversal was posted (sequence {:?}) but correction FAILED: {e}\n\
              The ledger now has an unmatched reversal. Post the correction manually.",
-            reversal_seq
-        ))),
+                reversal_seq
+            )))
+        }
     };
 
     let correction_seq = correction_result.entry_sequence;
-    let correction_id  = correction_result.entry_id.map(|u| u.to_string())
+    let correction_id = correction_result
+        .entry_id
+        .map(|u| u.to_string())
         .unwrap_or_else(|| "?".to_string());
 
     // ── Verify chain integrity ────────────────────────────────────────────────
@@ -1544,26 +1811,49 @@ fn tool_execute_correction(
     out.push_str("## Correction Complete\n\n");
     out.push_str("────────────────────────────────────────────\n\n");
 
-    out.push_str(&format!("✓ **Reversal posted**  \n"));
-    out.push_str(&format!("  Sequence: {}  \n", reversal_seq.map(|s| s.to_string()).unwrap_or("?".into())));
+    out.push_str("✓ **Reversal posted**  \n");
+    out.push_str(&format!(
+        "  Sequence: {}  \n",
+        reversal_seq.map(|s| s.to_string()).unwrap_or("?".into())
+    ));
     out.push_str(&format!("  Entry ID: {}  \n", reversal_id));
-    out.push_str(&format!("  Amount:   {} (original amount reversed)  \n\n", fmt(original_amount)));
+    out.push_str(&format!(
+        "  Amount:   {} (original amount reversed)  \n\n",
+        fmt(original_amount)
+    ));
 
-    out.push_str(&format!("✓ **Correction posted**  \n"));
-    out.push_str(&format!("  Sequence: {}  \n", correction_seq.map(|s| s.to_string()).unwrap_or("?".into())));
+    out.push_str("✓ **Correction posted**  \n");
+    out.push_str(&format!(
+        "  Sequence: {}  \n",
+        correction_seq.map(|s| s.to_string()).unwrap_or("?".into())
+    ));
     out.push_str(&format!("  Entry ID: {}  \n", correction_id));
-    out.push_str(&format!("  Amount:   {} (correct amount)  \n\n", fmt(correct_amount)));
+    out.push_str(&format!(
+        "  Amount:   {} (correct amount)  \n\n",
+        fmt(correct_amount)
+    ));
 
     out.push_str("────────────────────────────────────────────\n\n");
     out.push_str("| Check | Result |\n|---|---|\n");
-    out.push_str(&format!("| Double-entry balanced | ✓ Both entries balance |\n"));
-    out.push_str(&format!("| Original entry #{sequence} | ✓ PRESERVED — not modified |\n"));
-    out.push_str(&format!("| Hash chain | {} |\n",
-        if chain_ok { "✓ Extended and verified" } else { "⚠ Verify manually with VERIFY_CHAIN()" }
+    out.push_str("| Double-entry balanced | ✓ Both entries balance |\n");
+    out.push_str(&format!(
+        "| Original entry #{sequence} | ✓ PRESERVED — not modified |\n"
+    ));
+    out.push_str(&format!(
+        "| Hash chain | {} |\n",
+        if chain_ok {
+            "✓ Extended and verified"
+        } else {
+            "⚠ Verify manually with VERIFY_CHAIN()"
+        }
     ));
     out.push_str(&format!("| Net adjustment | {} |\n\n", {
         let adj = correct_amount - original_amount;
-        if adj >= 0 { format!("+{}", fmt(adj)) } else { format!("-{}", fmt(adj.abs())) }
+        if adj >= 0 {
+            format!("+{}", fmt(adj))
+        } else {
+            format!("-{}", fmt(adj.abs()))
+        }
     }));
 
     out.push_str(&format!(

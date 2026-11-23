@@ -1,0 +1,1 @@
+SELECT UM,BER() OVER () -ER() OVER () -UM,BER() OVER () -OVER () -ER() OVER () -ER ()  lsdger

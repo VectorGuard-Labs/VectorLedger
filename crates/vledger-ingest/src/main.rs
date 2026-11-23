@@ -24,8 +24,8 @@ use clap::Parser;
 use tracing::info;
 use tracing_subscriber::EnvFilter;
 
-use vledger_banno_connector::{BannoConfig, BannoConnector};
 use vledger_banking_core::CoreBankingConnector;
+use vledger_banno_connector::{BannoConfig, BannoConnector};
 use vledger_ingest::IngestPipeline;
 
 // ── CLI ───────────────────────────────────────────────────────────────────────
@@ -77,8 +77,7 @@ async fn main() -> Result<()> {
     // Initialise tracing
     tracing_subscriber::fmt()
         .with_env_filter(
-            EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| EnvFilter::new(&args.log_level)),
+            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(&args.log_level)),
         )
         .init();
 
@@ -91,12 +90,9 @@ async fn main() -> Result<()> {
 
     // ── Initialise the data directory if it doesn't exist ─────────────────
     let data_dir = &args.data_dir;
-    std::fs::create_dir_all(data_dir.join("wal"))
-        .context("Failed to create WAL directory")?;
-    std::fs::create_dir_all(data_dir.join("pages"))
-        .context("Failed to create pages directory")?;
-    std::fs::create_dir_all(data_dir.join("audit"))
-        .context("Failed to create audit directory")?;
+    std::fs::create_dir_all(data_dir.join("wal")).context("Failed to create WAL directory")?;
+    std::fs::create_dir_all(data_dir.join("pages")).context("Failed to create pages directory")?;
+    std::fs::create_dir_all(data_dir.join("audit")).context("Failed to create audit directory")?;
 
     // ── Audit package path ─────────────────────────────────────────────────
     let audit_package_path = args.audit_package.unwrap_or_else(|| {
@@ -131,11 +127,14 @@ async fn run_banno(
     token: Option<&str>,
     user_id: Option<&str>,
 ) -> Result<()> {
-    let config = BannoConfig::from_env()
-        .map_err(|e| anyhow::anyhow!("Failed to load Banno config from environment.\n\
+    let config = BannoConfig::from_env().map_err(|e| {
+        anyhow::anyhow!(
+            "Failed to load Banno config from environment.\n\
                   Required: BANNO_CLIENT_ID, BANNO_CLIENT_SECRET\n\
                   Optional: BANNO_REDIRECT_URI, BANNO_BASE_URL, BANNO_REDIRECT_PORT\n\
-                  Error: {e}"))?;
+                  Error: {e}"
+        )
+    })?;
 
     let mut connector = BannoConnector::new(config);
 
@@ -167,10 +166,9 @@ async fn run_banno(
 
     // Save the report as JSON
     let report_path = data_dir.join("last-ingest-report.json");
-    let report_json = serde_json::to_string_pretty(&report)
-        .context("Failed to serialize report")?;
-    std::fs::write(&report_path, report_json)
-        .context("Failed to write report")?;
+    let report_json =
+        serde_json::to_string_pretty(&report).context("Failed to serialize report")?;
+    std::fs::write(&report_path, report_json).context("Failed to write report")?;
     info!(path = %report_path.display(), "Report saved");
 
     // Exit with non-zero if chain verification failed

@@ -217,8 +217,7 @@ impl LicenseStore {
             email: String::new(),
             tier: LicenseTier::Free,
             issued_at: today,
-            expires_at: NaiveDate::from_ymd_opt(9999, 12, 31)
-                .expect("9999-12-31 is a valid date"), // compile-time constant
+            expires_at: NaiveDate::from_ymd_opt(9999, 12, 31).expect("9999-12-31 is a valid date"), // compile-time constant
             features: vec![],
             is_signed: false,
         }
@@ -246,8 +245,7 @@ impl LicenseStore {
 
     /// Returns true if the feature is available (non-error version).
     pub fn has_feature(&self, feature: &Feature) -> bool {
-        self.features.contains(feature)
-            || self.tier.default_features().contains(feature)
+        self.features.contains(feature) || self.tier.default_features().contains(feature)
     }
 
     /// Days remaining until expiry.  Returns `None` for the free (no-expiry) tier.

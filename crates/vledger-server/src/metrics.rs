@@ -324,7 +324,7 @@ impl Default for Metrics {
         Arc::try_unwrap(Self::new()).unwrap_or_else(|_arc| {
             // This path is unreachable for default() since we just created it.
             // clippy::panic: intentional — indicates a logic error if reached.
-            #[allow(clippy::panic)]
+
             panic!("unexpected Arc contention in Metrics::default")
         })
     }

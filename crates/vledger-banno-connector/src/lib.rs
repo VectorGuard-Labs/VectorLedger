@@ -38,9 +38,9 @@
 //! }
 //! ```
 
-pub mod config;
 pub mod auth;
 pub mod client;
+pub mod config;
 pub mod connector;
 pub mod mapping;
 pub mod response;

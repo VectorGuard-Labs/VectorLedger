@@ -1,0 +1,1 @@
+SELECT ROW_ER() *OVER () er

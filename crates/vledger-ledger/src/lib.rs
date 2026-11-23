@@ -30,18 +30,18 @@ pub mod currency;
 mod deterministic_recovery_tests;
 pub mod entry;
 pub mod entry_db;
+#[cfg(test)]
+mod entry_db_tests;
 pub mod error;
 #[cfg(test)]
 mod fault_injection_tests;
 #[cfg(test)]
 mod invariant_tests;
-#[cfg(test)]
-mod regression_tests;
-#[cfg(test)]
-mod entry_db_tests;
 pub mod lockfile;
 #[cfg(test)]
 mod proptest_invariants;
+#[cfg(test)]
+mod regression_tests;
 #[cfg(test)]
 mod settlement_tests;
 pub mod store;
