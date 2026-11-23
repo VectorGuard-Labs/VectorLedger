@@ -11,6 +11,9 @@
 //! replication_tests.rs unit tests, and collision resistance is a mathematical
 //! property of BLAKE3 (see the BLAKE3 paper, §5).
 
+#[cfg(kani)]
+use vledger_replication::protocol::{compute_mac, mac_eq};
+
 // ── Harness 1: mac_eq reflexive ───────────────────────────────────────────────
 
 /// Prove that mac_eq(a, a) is always true for any 32-byte array.

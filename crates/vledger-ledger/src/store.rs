@@ -620,17 +620,15 @@ impl LedgerStore {
             // Then rebuild the index if it is empty — this handles the one-time
             // backfill for databases created before v1.0.30.
             match self.entry_db.count() {
-                Ok(total) if total > 0 => {
-                    if self.entry_db.fts_is_empty() {
-                        info!(total, "FTS index empty — rebuilding from existing entries");
-                        match self.entry_db.rebuild_fts_index(|n| {
-                            if n % 1_000_000 == 0 {
-                                info!(processed = n, "FTS rebuild progress");
-                            }
-                        }) {
-                            Ok(n) => info!(entries_indexed = n, "FTS index rebuilt"),
-                            Err(e) => warn!("FTS rebuild failed: {e}"),
+                Ok(total) if total > 0 && self.entry_db.fts_is_empty() => {
+                    info!(total, "FTS index empty — rebuilding from existing entries");
+                    match self.entry_db.rebuild_fts_index(|n| {
+                        if n % 1_000_000 == 0 {
+                            info!(processed = n, "FTS rebuild progress");
                         }
+                    }) {
+                        Ok(n) => info!(entries_indexed = n, "FTS index rebuilt"),
+                        Err(e) => warn!("FTS rebuild failed: {e}"),
                     }
                 }
                 _ => {}

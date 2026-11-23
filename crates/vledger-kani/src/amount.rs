@@ -6,6 +6,9 @@
 //! 3. Checked arithmetic operators never panic for any valid i64 inputs.
 //! 4. Negation, addition, and subtraction are consistent with i64 semantics.
 
+#[cfg(kani)]
+use vledger_ledger::Amount;
+
 // ── Harness 1: zero amount always rejected ────────────────────────────────────
 
 /// Prove that `Amount::new(0)` always returns `None`.

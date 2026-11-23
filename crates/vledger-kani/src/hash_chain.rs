@@ -10,6 +10,9 @@
 //! which exceeds tractable bounds. Those properties are covered by the
 //! existing unit tests (hash_chain_is_consistent, verify_chain_integrity).
 
+#[cfg(kani)]
+use vledger_crypto::{merkle::merkle_root, Hash, ZERO_HASH};
+
 // ── Harness 1: ZERO_HASH is all zeros ─────────────────────────────────────────
 
 /// Prove that ZERO_HASH is exactly [0u8; 32].
