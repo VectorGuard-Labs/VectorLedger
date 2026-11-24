@@ -599,15 +599,15 @@ Every release is:
 **Verify a release:**
 ```bash
 # Verify checksum
-sha256sum -c vledger-v1.8.0-checksums.txt
+sha256sum -c vledger-v1.8.5-checksums.txt
 
 # Verify cosign signature
 cosign verify-blob \
-  --certificate vledger-v1.8.0-checksums.txt.sig.pem \
-  --signature   vledger-v1.8.0-checksums.txt.sig \
-  --certificate-identity "https://github.com/VectorGuard-Labs/VectorLedger/.github/workflows/release.yml@refs/tags/v1.8.0" \
+  --certificate vledger-v1.8.5-checksums.txt.sig.pem \
+  --signature   vledger-v1.8.5-checksums.txt.sig \
+  --certificate-identity "https://github.com/VectorGuard-Labs/VectorLedger/.github/workflows/release.yml@refs/tags/v1.8.5" \
   --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
-  vledger-v1.8.0-checksums.txt
+  vledger-v1.8.5-checksums.txt
 ```
 
 ---

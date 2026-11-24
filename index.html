@@ -175,7 +175,7 @@
 
 <!-- TOP BAR -->
 <div class="topbar">
-  <span class="topbar-title">VectorLedger &nbsp;<span class="version-badge">v1.8.0</span></span>
+  <span class="topbar-title">VectorLedger &nbsp;<span class="version-badge">v1.8.5</span></span>
   <nav class="topbar-nav">
     <button class="active" onclick="showView('overview')">Overview</button>
     <button onclick="showView('app')">Transaction Investigation</button>
@@ -1063,7 +1063,7 @@ fn get(id: Uuid) -&gt; Option&lt;ApprovalRecord&gt;</pre>
     <hr class="divider" />
     <h2>The Ask</h2>
     <p style="font-size:0.85rem;">Sponsor: Compliance Manager &nbsp;·&nbsp; Wave 1: 3 compliance analysts &nbsp;·&nbsp; Data access: VectorLedger transaction ledger (synthetic/approved data only, read-only) &nbsp;·&nbsp; IT/Security sign-off required &nbsp;·&nbsp; Budget: ~$15,000 build + $3,600/year run (ASSUMED) &nbsp;·&nbsp; Timeline: 90-day pilot</p>
-    <p style="font-size:0.75rem;color:var(--text-muted);margin-top:8px;">RULES v1.0 · 11 RULES · 15 TESTS · SYNTHETIC DATA · DEMO · NOT CONNECTED TO A LEDGER · VectorLedger v1.8.0 · VectorGuard Labs</p>
+    <p style="font-size:0.75rem;color:var(--text-muted);margin-top:8px;">RULES v1.0 · 11 RULES · 15 TESTS · SYNTHETIC DATA · DEMO · NOT CONNECTED TO A LEDGER · VectorLedger v1.8.5 · VectorGuard Labs</p>
   </div>
 </div>
 
@@ -1443,7 +1443,7 @@ function runInvestigation() {
   </div>`;
 
   html += liveEvidenceHtml();
-  html += `<p style="font-family:var(--mono);font-size:0.72rem;color:var(--text-muted);margin-top:12px;">RULES v1.0 · 11 RULES · ${LIVE.fromLedger ? 'LIVE LEDGER DATA · threshold, allow-list and four-eyes routing are demo rules' : 'SYNTHETIC DATA · DEMO · NOT CONNECTED TO A LEDGER'} · VectorLedger v1.8.0</p>`;
+  html += `<p style="font-family:var(--mono);font-size:0.72rem;color:var(--text-muted);margin-top:12px;">RULES v1.0 · 11 RULES · ${LIVE.fromLedger ? 'LIVE LEDGER DATA · threshold, allow-list and four-eyes routing are demo rules' : 'SYNTHETIC DATA · DEMO · NOT CONNECTED TO A LEDGER'} · VectorLedger v1.8.5</p>`;
 
   document.getElementById('output-empty').style.display = 'none';
   document.getElementById('output-content').style.display = 'block';

@@ -104,29 +104,29 @@ irm https://raw.githubusercontent.com/VectorGuard-Labs/VectorLedger/main/install
 
 ### Install from Release Binary
 
-Download from the [GitHub Releases page](https://github.com/VectorGuard-Labs/VectorLedger/releases/tag/v1.8.0):
+Download from the [GitHub Releases page](https://github.com/VectorGuard-Labs/VectorLedger/releases/tag/v1.8.5):
 
 | Platform | Filename | wget |
 |---|---|---|
-| Linux x86_64 (glibc) | `vledger-v1.8.0-linux-x86_64.tar.gz` | `wget https://github.com/VectorGuard-Labs/VectorLedger/releases/download/v1.8.0/vledger-v1.8.0-linux-x86_64.tar.gz` |
-| Linux x86_64 **musl** (fully static) | `vledger-v1.8.0-linux-x86_64-musl.tar.gz` | `wget https://github.com/VectorGuard-Labs/VectorLedger/releases/download/v1.8.0/vledger-v1.8.0-linux-x86_64-musl.tar.gz` |
-| Linux ARM64 (glibc) | `vledger-v1.8.0-linux-aarch64.tar.gz` | `wget https://github.com/VectorGuard-Labs/VectorLedger/releases/download/v1.8.0/vledger-v1.8.0-linux-aarch64.tar.gz` |
-| Linux ARM64 **musl** (fully static) | `vledger-v1.8.0-linux-aarch64-musl.tar.gz` | `wget https://github.com/VectorGuard-Labs/VectorLedger/releases/download/v1.8.0/vledger-v1.8.0-linux-aarch64-musl.tar.gz` |
-| macOS x86_64 | `vledger-v1.8.0-macos-x86_64.tar.gz` | `wget https://github.com/VectorGuard-Labs/VectorLedger/releases/download/v1.8.0/vledger-v1.8.0-macos-x86_64.tar.gz` |
-| macOS ARM64 (Apple Silicon) | `vledger-v1.8.0-macos-aarch64.tar.gz` | `wget https://github.com/VectorGuard-Labs/VectorLedger/releases/download/v1.8.0/vledger-v1.8.0-macos-aarch64.tar.gz` |
+| Linux x86_64 (glibc) | `vledger-v1.8.5-linux-x86_64.tar.gz` | `wget https://github.com/VectorGuard-Labs/VectorLedger/releases/download/v1.8.5/vledger-v1.8.5-linux-x86_64.tar.gz` |
+| Linux x86_64 **musl** (fully static) | `vledger-v1.8.5-linux-x86_64-musl.tar.gz` | `wget https://github.com/VectorGuard-Labs/VectorLedger/releases/download/v1.8.5/vledger-v1.8.5-linux-x86_64-musl.tar.gz` |
+| Linux ARM64 (glibc) | `vledger-v1.8.5-linux-aarch64.tar.gz` | `wget https://github.com/VectorGuard-Labs/VectorLedger/releases/download/v1.8.5/vledger-v1.8.5-linux-aarch64.tar.gz` |
+| Linux ARM64 **musl** (fully static) | `vledger-v1.8.5-linux-aarch64-musl.tar.gz` | `wget https://github.com/VectorGuard-Labs/VectorLedger/releases/download/v1.8.5/vledger-v1.8.5-linux-aarch64-musl.tar.gz` |
+| macOS x86_64 | `vledger-v1.8.5-macos-x86_64.tar.gz` | `wget https://github.com/VectorGuard-Labs/VectorLedger/releases/download/v1.8.5/vledger-v1.8.5-macos-x86_64.tar.gz` |
+| macOS ARM64 (Apple Silicon) | `vledger-v1.8.5-macos-aarch64.tar.gz` | `wget https://github.com/VectorGuard-Labs/VectorLedger/releases/download/v1.8.5/vledger-v1.8.5-macos-aarch64.tar.gz` |
 
 > **musl builds:** The `*-musl` binaries are fully statically linked — they have no dependency on glibc and run on any Linux distribution, including Alpine, distroless containers, and systems with older glibc versions. Use them for containerised deployments.
 
 **Verify before deploying:**
 ```bash
-sha256sum -c vledger-v1.8.0-checksums.txt
+sha256sum -c vledger-v1.8.5-checksums.txt
 
 cosign verify-blob \
-  --certificate vledger-v1.8.0-checksums.txt.sig.pem \
-  --signature   vledger-v1.8.0-checksums.txt.sig \
-  --certificate-identity "https://github.com/VectorGuard-Labs/VectorLedger/.github/workflows/release.yml@refs/tags/v1.8.0" \
+  --certificate vledger-v1.8.5-checksums.txt.sig.pem \
+  --signature   vledger-v1.8.5-checksums.txt.sig \
+  --certificate-identity "https://github.com/VectorGuard-Labs/VectorLedger/.github/workflows/release.yml@refs/tags/v1.8.5" \
   --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
-  vledger-v1.8.0-checksums.txt
+  vledger-v1.8.5-checksums.txt
 ```
 
 ### Build from Source
@@ -1212,7 +1212,7 @@ vledger sql --server 127.0.0.1:5433 --username admin \
 
 ```bash
 curl http://127.0.0.1:3000/health
-# {"ok":true,"service":"vledger-mcp","version":"1.8.0","tools":15,...}
+# {"ok":true,"service":"vledger-mcp","version":"1.8.5","tools":15,...}
 ```
 
 ### Prometheus Metrics
@@ -1825,7 +1825,7 @@ Regardless of which agent you use, you can confirm the MCP server is reachable a
 ```bash
 # Health check — returns tool count and agent query usage
 curl http://127.0.0.1:3000/health
-# {"ok":true,"service":"vledger-mcp","version":"1.8.0","tools":15,
+# {"ok":true,"service":"vledger-mcp","version":"1.8.5","tools":15,
 #  "agent_queries_used":0,"agent_queries_limit":100,"agent_queries_remaining":100}
 ```
 
@@ -2951,7 +2951,7 @@ Expected response:
 {
   "ok": true,
   "service": "vledger-mcp",
-  "version": "1.8.0",
+  "version": "1.8.5",
   "tools": 15
 }
 ```

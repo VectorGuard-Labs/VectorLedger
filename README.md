@@ -4,7 +4,7 @@
 
 VectorLedger is a purpose-built, append-only financial ledger written entirely in Rust. Every journal entry is linked by a tamper-evident BLAKE3 hash chain, every page of data is encrypted at rest with AES-256-GCM, and every query result can carry a cryptographic Merkle proof proving the returned data has not been modified since it was written. Historical tampering is **cryptographically detectable** — any modification to a past record invalidates every hash in the chain from that point forward.
 
-Built by [VectorGuard Labs](https://vectorguardlabs.com) · **Version 1.8.0** · License: BUSL-1.1
+Built by [VectorGuard Labs](https://vectorguardlabs.com) · **Version 1.8.5** · License: BUSL-1.1
 
 ---
 
@@ -176,16 +176,16 @@ irm https://raw.githubusercontent.com/VectorGuard-Labs/VectorLedger/main/install
 
 ### Option 2 — Download a release binary
 
-Pre-built binaries for v1.8.0 are available on the [GitHub Releases page](https://github.com/VectorGuard-Labs/VectorLedger/releases/tag/v1.8.0):
+Pre-built binaries for v1.8.5 are available on the [GitHub Releases page](https://github.com/VectorGuard-Labs/VectorLedger/releases/tag/v1.8.5):
 
 | Platform | Filename | wget |
 |---|---|---|
-| Linux x86_64 (glibc) | `vledger-v1.8.0-linux-x86_64.tar.gz` | `wget https://github.com/VectorGuard-Labs/VectorLedger/releases/download/v1.8.0/vledger-v1.8.0-linux-x86_64.tar.gz` |
-| Linux x86_64 **musl** (fully static) | `vledger-v1.8.0-linux-x86_64-musl.tar.gz` | `wget https://github.com/VectorGuard-Labs/VectorLedger/releases/download/v1.8.0/vledger-v1.8.0-linux-x86_64-musl.tar.gz` |
-| Linux ARM64 (glibc) | `vledger-v1.8.0-linux-aarch64.tar.gz` | `wget https://github.com/VectorGuard-Labs/VectorLedger/releases/download/v1.8.0/vledger-v1.8.0-linux-aarch64.tar.gz` |
-| Linux ARM64 **musl** (fully static) | `vledger-v1.8.0-linux-aarch64-musl.tar.gz` | `wget https://github.com/VectorGuard-Labs/VectorLedger/releases/download/v1.8.0/vledger-v1.8.0-linux-aarch64-musl.tar.gz` |
-| macOS x86_64 | `vledger-v1.8.0-macos-x86_64.tar.gz` | `wget https://github.com/VectorGuard-Labs/VectorLedger/releases/download/v1.8.0/vledger-v1.8.0-macos-x86_64.tar.gz` |
-| macOS ARM64 (Apple Silicon) | `vledger-v1.8.0-macos-aarch64.tar.gz` | `wget https://github.com/VectorGuard-Labs/VectorLedger/releases/download/v1.8.0/vledger-v1.8.0-macos-aarch64.tar.gz` |
+| Linux x86_64 (glibc) | `vledger-v1.8.5-linux-x86_64.tar.gz` | `wget https://github.com/VectorGuard-Labs/VectorLedger/releases/download/v1.8.5/vledger-v1.8.5-linux-x86_64.tar.gz` |
+| Linux x86_64 **musl** (fully static) | `vledger-v1.8.5-linux-x86_64-musl.tar.gz` | `wget https://github.com/VectorGuard-Labs/VectorLedger/releases/download/v1.8.5/vledger-v1.8.5-linux-x86_64-musl.tar.gz` |
+| Linux ARM64 (glibc) | `vledger-v1.8.5-linux-aarch64.tar.gz` | `wget https://github.com/VectorGuard-Labs/VectorLedger/releases/download/v1.8.5/vledger-v1.8.5-linux-aarch64.tar.gz` |
+| Linux ARM64 **musl** (fully static) | `vledger-v1.8.5-linux-aarch64-musl.tar.gz` | `wget https://github.com/VectorGuard-Labs/VectorLedger/releases/download/v1.8.5/vledger-v1.8.5-linux-aarch64-musl.tar.gz` |
+| macOS x86_64 | `vledger-v1.8.5-macos-x86_64.tar.gz` | `wget https://github.com/VectorGuard-Labs/VectorLedger/releases/download/v1.8.5/vledger-v1.8.5-macos-x86_64.tar.gz` |
+| macOS ARM64 (Apple Silicon) | `vledger-v1.8.5-macos-aarch64.tar.gz` | `wget https://github.com/VectorGuard-Labs/VectorLedger/releases/download/v1.8.5/vledger-v1.8.5-macos-aarch64.tar.gz` |
 
 > **musl builds** (`*-musl`) are fully statically linked — no glibc dependency. Use them for Alpine Linux, distroless containers, or any system with an older or non-standard libc.
 
@@ -193,15 +193,15 @@ Each release is accompanied by a checksums file and a CycloneDX SBOM. Verify bef
 
 ```bash
 # Verify SHA-256 checksum
-sha256sum -c vledger-v1.8.0-checksums.txt
+sha256sum -c vledger-v1.8.5-checksums.txt
 
 # Verify cosign signature (keyless OIDC)
 cosign verify-blob \
-  --certificate vledger-v1.8.0-checksums.txt.sig.pem \
-  --signature   vledger-v1.8.0-checksums.txt.sig \
-  --certificate-identity "https://github.com/VectorGuard-Labs/VectorLedger/.github/workflows/release.yml@refs/tags/v1.8.0" \
+  --certificate vledger-v1.8.5-checksums.txt.sig.pem \
+  --signature   vledger-v1.8.5-checksums.txt.sig \
+  --certificate-identity "https://github.com/VectorGuard-Labs/VectorLedger/.github/workflows/release.yml@refs/tags/v1.8.5" \
   --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
-  vledger-v1.8.0-checksums.txt
+  vledger-v1.8.5-checksums.txt
 ```
 
 ### Option 3 — Build from source
@@ -568,7 +568,7 @@ vledger-mcp \
 
 ```bash
 curl http://127.0.0.1:3000/health
-# {"ok":true,"service":"vledger-mcp","version":"1.8.0","tools":15,
+# {"ok":true,"service":"vledger-mcp","version":"1.8.5","tools":15,
 #  "agent_queries_used":3,"agent_queries_limit":100,"agent_queries_remaining":97}
 ```
 
@@ -821,7 +821,7 @@ vledger-bench \
 
 ## Changelog
 
-### Unreleased
+### v1.8.5
 
 - **Fixed — the Python, Go and TypeScript clients could not log in:** release builds of the server require an `auth` frame first and a session token on every request, but none of the three SDKs sent either, so every query was refused. All three now accept `username`/`password` (Go: `Options.Username`/`Password`), authenticate on connect and on reconnect, and raise a distinct auth error (`VledgerAuthError`). Also fixed: Python `with VledgerClient.connect(...)` opened an extra TLS connection to the default host and port; the Go `TLSCACert` option was documented but never loaded; Go `Balance` failed on the string cells the server returns; `verify_chain` now includes the server's integrity-failure message. Go README example no longer passes a bool to the `*bool` `UseTLS` field.
 - **Added `vledger export`:** exports accounts, balances, journal entries, and journal lines to CSV/JSONL with a BLAKE3 manifest. Works on every tier, verifies the hash chain first, and refuses to overwrite existing files. New `LedgerExported` audit event.
