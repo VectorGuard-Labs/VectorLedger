@@ -3328,7 +3328,7 @@ fn run_sql_authenticated(
                 }
             );
             if let Some(ref proof) = result.proof {
-                println!("   Merkle root : {}", &hex::encode(proof.root));
+                println!("   Merkle root : {}", hex::encode(proof.root));
             }
             println!();
         }
@@ -4670,7 +4670,7 @@ async fn cmd_verify_audit_package(file: &std::path::Path) -> Result<()> {
             report.entry_count
         );
         if !report.root_hex.is_empty() {
-            println!("  Merkle root : {}", &report.root_hex);
+            println!("  Merkle root : {}", report.root_hex);
         }
         match report.sig_status {
             audit_package::SigStatus::Valid => {
@@ -6446,11 +6446,9 @@ async fn cmd_migrate_to_sqlite(data_dir: &std::path::Path) -> anyhow::Result<()>
 
                 let elapsed = start.elapsed().as_secs_f64().max(0.001);
                 let tps = indexed as f64 / elapsed;
-                let pct = if est_total > 0 {
-                    (indexed + already_indexed) * 100 / est_total
-                } else {
-                    0
-                };
+                let pct = ((indexed + already_indexed) * 100)
+                    .checked_div(est_total)
+                    .unwrap_or(0);
                 eprint!(
                     "\r  Entries: {:>12}  ~{}%  ({:.0}/sec)    ",
                     indexed, pct, tps
