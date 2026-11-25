@@ -344,6 +344,8 @@ INSERT INTO accounts (code, name, account_type, currency, domain)
 
 `UPDATE`, `DELETE`, `CREATE TABLE`, `DROP TABLE`, `CREATE INDEX`, `ALTER TABLE`, `pg_catalog.*`, `information_schema.*`
 
+Multi-row `INSERT ... VALUES (...), (...)` is refused with an error: send one row per statement. (Before 1.8.6 such a statement posted only the first row and silently discarded the rest.)
+
 ### Important Notes
 
 - **Amounts are always in minor units** — $10.00 USD = `1000` (integer cents). Never use decimals.

@@ -117,6 +117,34 @@ mod tests {
     }
 
     #[test]
+    fn sql_insert_multi_row_ledger_is_refused_and_posts_nothing() {
+        // Regression: a multi-row VALUES list kept the first row and silently dropped
+        // the others. It must fail, and must not post even the first row.
+        let (_dir, mut store) = setup();
+        mk_accounts(&mut store);
+        let stmt = parse_one(
+            "INSERT INTO ledger (description, debit_account, credit_account, amount, currency, domain) \
+             VALUES ('a', 'CASH', 'REV', 100, 'USD', 'main'), ('b', 'CASH', 'REV', 200, 'USD', 'main')",
+        )
+        .unwrap();
+        let err = LogicalPlanBuilder::plan(stmt).unwrap_err();
+        assert!(err.to_string().contains("one row per statement"), "{err}");
+        let count = run(&mut store, "SELECT * FROM ledger");
+        assert_eq!(count.rows.len(), 0);
+    }
+
+    #[test]
+    fn sql_insert_multi_row_accounts_is_refused() {
+        let stmt = parse_one(
+            "INSERT INTO accounts (code, name, account_type, currency, domain) \
+             VALUES ('A1', 'A1', 'Asset', 'USD', 'm'), ('A2', 'A2', 'Asset', 'USD', 'm')",
+        )
+        .unwrap();
+        let err = LogicalPlanBuilder::plan(stmt).unwrap_err();
+        assert!(err.to_string().contains("2 VALUES rows"), "{err}");
+    }
+
+    #[test]
     fn sql_insert_unknown_debit_account_fails() {
         let (_dir, mut store) = setup();
         mk_accounts(&mut store);

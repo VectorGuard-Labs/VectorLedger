@@ -547,10 +547,7 @@ impl LogicalPlanBuilder {
                         ))
                     }
                 };
-                let vals = rows
-                    .into_iter()
-                    .next()
-                    .ok_or_else(|| SqlError::MissingField("at least one VALUES row".into()))?;
+                let vals = single_values_row(rows, &table)?;
 
                 let get = |name: &str| -> Result<String, SqlError> {
                     let idx = cols
@@ -599,10 +596,7 @@ impl LogicalPlanBuilder {
                         ))
                     }
                 };
-                let vals = rows
-                    .into_iter()
-                    .next()
-                    .ok_or_else(|| SqlError::MissingField("at least one VALUES row".into()))?;
+                let vals = single_values_row(rows, &table)?;
 
                 let get = |name: &str| -> Result<String, SqlError> {
                     let idx = cols
@@ -1032,3 +1026,24 @@ fn expr_to_col_name(expr: &Expr) -> String {
         other => format!("{other}"),
     }
 }
+
+/// The single row of an `INSERT ... VALUES`.
+///
+/// Each INSERT maps to exactly one journal entry or account. A multi-row VALUES list
+/// used to keep only the first row and silently discard the rest, which loses data
+/// without an error. It is now refused, so the client learns that only one row per
+/// statement is accepted and can send the others separately.
+fn single_values_row(rows: Vec<Vec<Expr>>, table: &str) -> Result<Vec<Expr>, SqlError> {
+    let n = rows.len();
+    if n != 1 {
+        return Err(if n == 0 {
+            SqlError::MissingField("at least one VALUES row".into())
+        } else {
+            SqlError::Unsupported(format!(
+                "INSERT INTO {table} with {n} VALUES rows: send one row per statement"
+            ))
+        });
+    }
+    Ok(rows.into_iter().next().unwrap_or_default())
+}
+
